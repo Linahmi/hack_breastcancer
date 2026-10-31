@@ -38,6 +38,21 @@ the repository.
    useful only after structural context distinguishes intentional interface
    engineering from sequence liability.
 
+Predictions 6 and 7 were added after the consensus-arm position analysis but
+still before any design was scored.
+
+6. **If `consensus_green` failures cluster on the seven designs carrying
+   D102S, the position is the problem. If failures spread evenly across all
+   ten designs, the first failure was stochastic.** The first failure was
+   `w01_consensus_green_01`: docking rate 3/5, minimum seed 0.0180, median
+   0.6553. Aida confirms this with all ten consensus designs around 14:45.
+
+7. **D102S versus D102W is a direct head-to-head at the same position.** D102S
+   appears in seven designs and was chosen independently by both language
+   models. D102W appears in two designs and comes from the published Gerstner
+   alanine-scan study. Models and literature converged on the position and
+   disagree on the residue; the measurements settle which was right.
+
 ## Literature source
 
 Kelley RF, O'Connell MP. Thermodynamic analysis of an antibody functional
