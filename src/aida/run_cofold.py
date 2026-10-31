@@ -161,8 +161,12 @@ def expected_npz(out_root: Path, run: str) -> Path:
 def one(run: str, yaml_str: str, params: str, out_root: Path, meta: dict):
     """Run a single cofold and write its outputs. Returns (run, seconds, nfiles)."""
     t0 = time.monotonic()
+    w0 = time.time()
     outputs = boltz.remote(yaml_str, params_str=params, name=run)
     elapsed = time.monotonic() - t0
+    w1 = time.time()
+    meta["t_start_epoch"] = round(w0, 3)
+    meta["t_end_epoch"] = round(w1, 3)
 
     dest = out_root / run
     written = []
@@ -186,7 +190,7 @@ def one(run: str, yaml_str: str, params: str, out_root: Path, meta: dict):
 
 
 @app.local_entrypoint()
-def main(
+def run(
     csv_path: str,
     seeds: str = "1",
     out_dir: str = "outputs",
