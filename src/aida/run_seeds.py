@@ -3,8 +3,19 @@
 Reuses the lean Boltz-2 app/function from modal_boltz2.py and fans the seeds
 out with .starmap, so all seeds occupy separate containers concurrently.
 
+The entrypoint is named `fanout`, not `main`: modal_boltz2 already registers a
+`main` local entrypoint on this same app, and two entrypoints sharing a name
+is a hard InvalidError raised at import time. The name must therefore be
+given explicitly after `::`.
+
 Usage:
-    modal run run_seeds.py --input-yaml inputs/her2_scfv_cofold.yaml --seeds 1,2,3
+    modal run run_seeds.py::fanout --input-yaml inputs/her2_scfv_cofold.yaml --seeds 1,2,3
+
+NOTE: every seed here reaches boltz() without a `name`, so all of them use the
+default stem "fixed" and land on identical paths -- the files are written to
+separate out_dir/seed<N>/ directories, so they do not clobber, but each tree
+is internally named boltz_results_fixed/predictions/fixed/pae_fixed_*.npz.
+For named, resumable, per-row output use run_cofold.py instead.
 """
 
 from pathlib import Path
@@ -15,7 +26,7 @@ BASE_PARAMS = "--use_msa_server --write_full_pae --recycling_steps 10 --diffusio
 
 
 @app.local_entrypoint()
-def main(
+def fanout(
     input_yaml: str = "inputs/her2_scfv_cofold.yaml",
     seeds: str = "1,2,3",
     out_dir: str = "./out/boltz",
