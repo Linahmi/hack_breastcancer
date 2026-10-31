@@ -52,6 +52,7 @@ def _pae(
     interface: dict[tuple[str, str], tuple[range, range]],
     dead_rows: dict[str, tuple[int, ...]],
     seed: int,
+    one_way: dict[tuple[str, str], tuple[range, range]] | None = None,
 ) -> np.ndarray:
     """Build an asymmetric PAE matrix with planted low-PAE interface patches.
 
@@ -92,6 +93,18 @@ def _pae(
                 # Asymmetric on purpose: the transpose gets its own, larger value
                 # so ipSAE(A->B) != ipSAE(B->A) and the max/asym split is tested.
                 pae[k, r] = np.clip(pae[r, k] + rng.uniform(1.5, 4.5), 0.3, PAE_MAX)
+
+    # One-way patches: low PAE in the c1->c2 direction ONLY, with the
+    # transpose forced well above any cutoff. This makes the two directions
+    # disagree about which residues are in the interface, which a symmetric
+    # patch can never do -- and that disagreement is what exposes bugs in
+    # the symmetric "max" record's per-chain counts.
+    for (c1, c2), (rows, cols) in (one_way or {}).items():
+        for i in rows:
+            for j in cols:
+                r, k = start[c1] + i, start[c2] + j
+                pae[r, k] = np.clip(1.0 + rng.uniform(0.0, 1.2), 0.3, PAE_MAX)
+                pae[k, r] = rng.uniform(22.0, PAE_MAX)
 
     # Dead rows: nothing inter-chain passes a cutoff of 10 or 15.
     for c, rows in dead_rows.items():
@@ -172,7 +185,26 @@ def build(name: str, outdir: Path, *, pae_key: str = "pae") -> dict:
         interface = {("A", "B"): (range(4, 26), range(6, 38))}
         dead = {"A": (0, 29), "B": (0,)}
         gly = {"A": (7, 18), "B": (3, 22, 39)}
+        one_way = {}
         seed = 20260131
+    elif name == "oneside":
+        # A one-sided interface: A->B is confident over a wide block, but
+        # most of B's rows are dead toward A, so the two directions disagree
+        # on how many residues are in the interface.
+        #
+        # The pair/trimer fixtures happen to produce the SAME nres/dist
+        # counts in both directions, which let a real bug in the max row's
+        # per-chain counts pass parity unnoticed until a real cofold was
+        # scored. This fixture exists to make that asymmetry explicit.
+        sizes = {"A": 30, "B": 35}
+        interface = {("A", "B"): (range(3, 20), range(2, 24))}
+        # B->A only: these A residues are in the interface when scoring
+        # B->A but NOT when scoring A->B, so the reverse direction reports
+        # MORE chain-A residues than the forward one.
+        one_way = {("B", "A"): (range(2, 30), range(20, 30))}
+        dead = {"B": (34,)}
+        gly = {"A": (9,), "B": (4, 20)}
+        seed = 31337
     elif name == "trimer":
         # Three chains: checks pair enumeration and that chain C never leaks
         # into the A/B interface mask.
@@ -183,6 +215,7 @@ def build(name: str, outdir: Path, *, pae_key: str = "pae") -> dict:
         }
         dead = {"A": (24,), "C": (19,)}
         gly = {"A": (5,), "B": (11, 29), "C": (0, 8)}
+        one_way = {}
         seed = 777
     else:
         raise ValueError(f"unknown fixture {name!r}")
@@ -191,7 +224,7 @@ def build(name: str, outdir: Path, *, pae_key: str = "pae") -> dict:
     rng = np.random.default_rng(seed + 1)
     plddt = np.round(rng.uniform(32.0, 98.0, size=total), 2)
     names = {c: _resnames(n, gly.get(c, ()), seed + i) for i, (c, n) in enumerate(sizes.items())}
-    pae = _pae(sizes, interface, dead, seed)
+    pae = _pae(sizes, interface, dead, seed, one_way=one_way)
     ca = _coords(sizes, seed)
 
     outdir.mkdir(parents=True, exist_ok=True)
@@ -219,7 +252,11 @@ def build(name: str, outdir: Path, *, pae_key: str = "pae") -> dict:
     }
 
 
-FIXTURES = {"pair": {"pae_key": "pae"}, "trimer": {"pae_key": "predicted_aligned_error"}}
+FIXTURES = {
+    "pair": {"pae_key": "pae"},
+    "oneside": {"pae_key": "pae"},
+    "trimer": {"pae_key": "predicted_aligned_error"},
+}
 
 
 def build_all(outdir: Path) -> list[dict]:

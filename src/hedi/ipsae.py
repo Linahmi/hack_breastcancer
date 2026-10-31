@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -350,8 +351,20 @@ def _max_records(
             m.lis = (fwd.lis + rev.lis) / 2.0  # averaged, not maximised
 
             m.n0chn, m.d0chn = fwd.n0chn, fwd.d0chn  # direction-independent
-            m.nres1, m.nres2 = fwd.nres1, fwd.nres2
-            m.dist1, m.dist2 = fwd.dist1, fwd.dist2
+
+            # Interface residue counts are per CHAIN, and each chain has two
+            # direction-specific counts: chain A appears as nres1 of A->B and
+            # as nres2 of B->A. The max row reports the larger of the two for
+            # each chain -- NOT the forward direction's pair.
+            #
+            # Easy to get wrong and easy to miss: it only shows up when the
+            # two directions disagree, which a symmetric test fixture will
+            # never produce. The real parent_quick cofold is what caught it
+            # (ref 242/124/97/75 vs 226/124/97/72 from taking fwd's pair).
+            m.nres1 = max(fwd.nres1, rev.nres2)
+            m.nres2 = max(fwd.nres2, rev.nres1)
+            m.dist1 = max(fwd.dist1, rev.dist2)
+            m.dist2 = max(fwd.dist2, rev.dist1)
             out.append(m)
     return out
 
@@ -456,8 +469,20 @@ def read_af2(pae_path: str | Path, pdb_path: str | Path) -> Model:
 # --------------------------------------------------------------------------
 # Boltz 2.2.1 reader.
 #
-# Layout: Boltz 2.2.1 writes <out_dir>/predictions/<stem>/ . The older
-# boltz_results_<stem>/ layout is Boltz-1 and is NOT what we get.
+# Layout, confirmed against a real 2.2.1 tree (outputs/parent_quick on the
+# aida branch) -- the upstream docs are wrong about this. Boltz inserts a
+# boltz_results_<run> level that the docs omit:
+#
+#   <out_dir>/boltz_results_<run>/predictions/<run>/pae_<run>_model_<N>.npz
+#
+# The path that circulated in the team, <out_dir>/predictions/<run>/, is
+# missing that level and matches nothing on disk. We therefore glob
+# RECURSIVELY for */predictions/*/pae_*, which matches with or without the
+# boltz_results_ level and so survives either layout.
+#
+# --diffusion_samples N produces model_0 .. model_(N-1), each with its own
+# pae/plddt/confidence/structure. One sample is not a result: we score every
+# sample and aggregate (see score_boltz_run).
 #
 # Sibling files are located by globbing inside the prediction directory, not
 # by string-substituting the PAE filename. The reference does the latter
@@ -466,7 +491,8 @@ def read_af2(pae_path: str | Path, pdb_path: str | Path) -> Model:
 # silently resolves to a file that does not exist, or worse, the wrong one.
 # --------------------------------------------------------------------------
 
-BOLTZ_PAE_GLOB = "predictions/*/pae_*_model_{model}.npz"
+BOLTZ_PAE_GLOB = "**/predictions/*/pae_*_model_*.npz"
+BOLTZ_MODEL_RE = re.compile(r"_model_(\d+)\.npz$")
 PARENT_SCFV_LEN = 242  # the 242 aa trastuzumab scFv parent
 
 AA3TO1 = {
@@ -479,69 +505,92 @@ AA3TO1 = {
 
 @dataclass
 class BoltzOutputs:
-    """Resolved paths for one Boltz prediction. All paths exist except the
-    optional siblings, which are None when absent."""
+    """Resolved paths for ONE diffusion sample. Optional siblings may be None."""
 
     out_dir: Path
     pred_dir: Path
     stem: str
+    model: int
     pae_npz: Path
     structure: Path
     plddt_npz: Path | None = None
     confidence_json: Path | None = None
 
 
-def _one_match(matches: list[Path], what: str, pattern: str, where: Path) -> Path:
-    """Exactly one, or a loud failure naming what was actually there."""
-    if len(matches) == 1:
-        return matches[0]
-    if not matches:
-        siblings = sorted(p.name for p in where.rglob("*") if p.is_file())[:25]
-        raise FileNotFoundError(
-            f"no {what} matching {pattern!r} under {where}. "
-            f"Files present: {siblings or '(none)'}. "
-            "If this is a boltz_results_*/ tree it is the Boltz-1 layout; "
-            "Boltz 2.2.1 writes <out_dir>/predictions/<stem>/."
-        )
-    raise ValueError(
-        f"{len(matches)} files match {what} pattern {pattern!r} under {where}, "
-        f"expected exactly 1: {[str(p) for p in matches]}. "
-        "Point out_dir at a single prediction, or pass model= to disambiguate."
-    )
+def find_boltz_samples(out_dir: str | Path) -> list[BoltzOutputs]:
+    """Resolve every diffusion sample of one Boltz run, in model order.
 
-
-def find_boltz_outputs(out_dir: str | Path, model: int = 0) -> BoltzOutputs:
-    """Resolve one Boltz 2.2.1 prediction's files, asserting a unique match."""
+    At least one sample is required, not exactly one: --diffusion_samples 5
+    yields model_0..model_4 and all of them are scored. What must be unique
+    is the PREDICTION DIRECTORY -- several directories under one out_dir
+    means out_dir points above several runs, and silently scoring a mixture
+    of them would be worse than failing.
+    """
     out_dir = Path(out_dir)
     if not out_dir.is_dir():
         raise NotADirectoryError(f"out_dir {out_dir} is not a directory")
 
-    pattern = BOLTZ_PAE_GLOB.format(model=model)
-    pae_npz = _one_match(sorted(out_dir.glob(pattern)), "PAE npz", pattern, out_dir)
-    pred_dir = pae_npz.parent
+    matches = sorted(out_dir.glob(BOLTZ_PAE_GLOB))
+    if not matches:
+        present = sorted(p.name for p in out_dir.rglob("*") if p.is_file())[:25]
+        raise FileNotFoundError(
+            f"no PAE npz matching {BOLTZ_PAE_GLOB!r} under {out_dir}. "
+            f"Files present: {present or '(none)'}. Expected "
+            "<out_dir>/boltz_results_<run>/predictions/<run>/pae_<run>_model_<N>.npz "
+            "(Boltz inserts the boltz_results_ level; the upstream docs omit it). "
+            "A run without --write_full_pae produces no PAE at all."
+        )
+
+    by_dir: dict[Path, list[Path]] = {}
+    for m in matches:
+        by_dir.setdefault(m.parent, []).append(m)
+    if len(by_dir) > 1:
+        raise ValueError(
+            f"found predictions in {len(by_dir)} directories under {out_dir}, "
+            f"expected one run: {[str(d) for d in sorted(by_dir)]}. "
+            "Point out_dir at a single run."
+        )
+
+    pred_dir, paes = next(iter(by_dir.items()))
     stem = pred_dir.name
 
-    # Siblings live beside the PAE file; glob them, never string-substitute.
-    struct = sorted(pred_dir.glob(f"*_model_{model}.cif")) or sorted(
-        pred_dir.glob(f"*_model_{model}.pdb")
-    )
-    structure = _one_match(
-        struct, "structure", f"*_model_{model}.[cif|pdb]", pred_dir
-    )
+    samples: list[BoltzOutputs] = []
+    for pae in paes:
+        m = BOLTZ_MODEL_RE.search(pae.name)
+        if m is None:
+            raise ValueError(f"cannot read a model index from {pae.name}")
+        idx = int(m.group(1))
 
-    def _optional(pat: str) -> Path | None:
-        hits = sorted(pred_dir.glob(pat))
-        return hits[0] if len(hits) == 1 else None
+        struct = sorted(pred_dir.glob(f"*_model_{idx}.cif")) or sorted(
+            pred_dir.glob(f"*_model_{idx}.pdb")
+        )
+        # Exclude the npz siblings that also end in _model_<idx>
+        struct = [p for p in struct if p.suffix in (".cif", ".pdb")]
+        if len(struct) != 1:
+            raise ValueError(
+                f"expected exactly 1 structure for model {idx} in {pred_dir}, "
+                f"found {[p.name for p in struct]}"
+            )
 
-    return BoltzOutputs(
-        out_dir=out_dir,
-        pred_dir=pred_dir,
-        stem=stem,
-        pae_npz=pae_npz,
-        structure=structure,
-        plddt_npz=_optional(f"plddt_*_model_{model}.npz"),
-        confidence_json=_optional(f"confidence_*_model_{model}.json"),
-    )
+        def _optional(pat: str) -> Path | None:
+            hits = sorted(pred_dir.glob(pat))
+            return hits[0] if len(hits) == 1 else None
+
+        samples.append(
+            BoltzOutputs(
+                out_dir=out_dir,
+                pred_dir=pred_dir,
+                stem=stem,
+                model=idx,
+                pae_npz=pae,
+                structure=struct[0],
+                plddt_npz=_optional(f"plddt_*_model_{idx}.npz"),
+                confidence_json=_optional(f"confidence_*_model_{idx}.json"),
+            )
+        )
+
+    samples.sort(key=lambda s: s.model)
+    return samples
 
 
 def describe_boltz_npz(path: str | Path) -> str:
@@ -571,37 +620,47 @@ class BoltzArrays:
     plddt: np.ndarray | None
 
 
+BOLTZ_PAE_KEY = "pae"
+BOLTZ_PLDDT_KEY = "plddt"
+
+
 def _boltz_arrays(paths: BoltzOutputs) -> BoltzArrays:
-    """THE ONLY place Boltz array keys are read. Deliberately unimplemented.
+    """THE ONLY place Boltz array keys are read.
 
-    TODO(hedi): fill in once a real Boltz 2.2.1 output is in hand. Everything
-    else in the Boltz path -- file resolution, mmCIF parsing, chain checks,
-    the PAE guards -- is written and testable; only the key names are unknown,
-    and guessing them is how you get a number that is confidently wrong
-    rather than an error.
+    Verified against boltz 2.2.1 output (outputs/parent_quick, aida branch):
 
-    To fill this in:
-      1. `print(describe_boltz_npz(paths.pae_npz))` and the same for
-         paths.plddt_npz, and read off the real key names and shapes.
-      2. Set `pae` from the (n_token, n_token) array and `plddt` from the
-         per-token vector (scale by 100 if its max is <= 1.0 -- Boltz has
-         shipped both conventions).
-      3. Decide whether the PAE is over TOKENS or over RESIDUES. For a
-         protein-only complex with no ligands or modified residues these
-         coincide, and `read_boltz`'s shape guard will confirm it. If they
-         do not coincide, a token mask selecting CA rows/columns is needed
-         here -- see the reference's token_array handling.
+        pae_<run>_model_<N>.npz    -> 'pae',   (384, 384) float32
+        plddt_<run>_model_<N>.npz  -> 'plddt', (384,)     float32, 0-1 scale
 
-    The reference (ipsae.py v4) used 'pae' in the PAE npz and 'plddt' in the
-    plddt npz for Boltz-1/2, but that is a Boltz-1-era observation about a
-    different output layout, so it is a starting hypothesis to CHECK against
-    step 1, not a value to hard-code here.
+    384 is exactly the residue count (242 aa scFv + 142 aa HER2 domain IV),
+    so for a protein-only complex Boltz's PAE is indexed by RESIDUE and no
+    token mask is needed. That is asserted rather than assumed: read_boltz
+    compares the PAE shape against the parsed structure and refuses a
+    mismatch. A complex containing a ligand or a modified residue would
+    introduce extra tokens and trip that guard -- which is the correct
+    outcome, since the mask logic to handle it is not written.
+
+    pLDDT came back on a 0-1 scale here; read_boltz rescales to 0-100 when
+    the max is <= 1.0, because Boltz has shipped both conventions.
+
+    If a key is missing we raise with the keys that ARE present, rather than
+    letting a KeyError surface with no context.
     """
-    raise NotImplementedError(
-        "Boltz array keys are not known yet -- see the TODO in _boltz_arrays. "
-        f"Run describe_boltz_npz({str(paths.pae_npz)!r}) to list the real "
-        "keys, then fill in this one function. Nothing else needs to change."
-    )
+    def _get(path: Path, key: str, what: str) -> np.ndarray:
+        with np.load(path, allow_pickle=False) as z:
+            if key not in z.files:
+                raise KeyError(
+                    f"{path.name} has no {key!r} array (holds {list(z.files)}). "
+                    f"If boltz renamed the {what} key, fix it in _boltz_arrays "
+                    "-- it is the only place these keys are read."
+                )
+            return np.array(z[key])
+
+    pae = _get(paths.pae_npz, BOLTZ_PAE_KEY, "PAE")
+    plddt = None
+    if paths.plddt_npz is not None:
+        plddt = _get(paths.plddt_npz, BOLTZ_PLDDT_KEY, "pLDDT")
+    return BoltzArrays(pae=pae, plddt=plddt)
 
 
 def _cif_tokens(line: str) -> list[str]:
@@ -782,22 +841,15 @@ def assert_chain_layout(
         raise ValueError(f"chain {target_chain} (target) has no residues")
 
 
-def read_boltz(
-    out_dir: str | Path,
-    model: int = 0,
+def read_boltz_sample(
+    paths: BoltzOutputs,
     *,
     scfv_chain: str = "A",
     target_chain: str = "B",
     scfv_len: int | None = PARENT_SCFV_LEN,
     check_chains: bool = True,
 ) -> Model:
-    """Read one Boltz 2.2.1 prediction into a Model.
-
-    Raises NotImplementedError until `_boltz_arrays` is filled in; every other
-    step here runs and is worth exercising against a real output directory.
-    """
-    paths = find_boltz_outputs(out_dir, model=model)
-
+    """Read ONE diffusion sample into a Model."""
     if str(paths.structure).endswith(".cif"):
         atoms = read_cif_atoms(paths.structure)
     else:
@@ -853,7 +905,7 @@ def read_boltz(
         # iptm_af is deliberately left at -1.0: it would come from
         # confidence_*.json's pair_chains_iptm, whose integer-keyed chain
         # mapping is undocumented. ipSAE does not need it.
-        name=paths.stem,
+        name=f"{paths.stem}_model_{paths.model}",
     )
     m.validate()
     if check_chains:
@@ -861,6 +913,126 @@ def read_boltz(
             m, scfv_chain=scfv_chain, target_chain=target_chain, scfv_len=scfv_len
         )
     return m
+
+
+def read_boltz(out_dir: str | Path, model: int = 0, **kw) -> Model:
+    """Read a single named diffusion sample of a Boltz run."""
+    samples = find_boltz_samples(out_dir)
+    for s in samples:
+        if s.model == model:
+            return read_boltz_sample(s, **kw)
+    raise ValueError(
+        f"model {model} not found in {out_dir}; available: "
+        f"{[s.model for s in samples]}"
+    )
+
+
+@dataclass
+class RunScore:
+    """ipSAE across every diffusion sample of one run, for one chain pair.
+
+    Aggregated by MEDIAN, not mean: with 5 samples a single collapsed pose
+    would drag a mean down and misrepresent the run, while the median
+    reports what the sampler typically produced.
+
+    `values` keeps every per-sample score and `spread` (max - min) is
+    retained deliberately: a tight ensemble is a more trustworthy number
+    than a scattered one, so spread is available as a tie-breaker between
+    designs whose medians are too close to separate on their own.
+    """
+
+    run: str
+    chain1: str
+    chain2: str
+    pae_cutoff: float
+    dist_cutoff: float
+    models: list[int]
+    values: list[float]
+    records: list[Record] = field(default_factory=list, repr=False)
+
+    @property
+    def median(self) -> float:
+        return float(np.median(self.values))
+
+    @property
+    def spread(self) -> float:
+        return float(max(self.values) - min(self.values)) if self.values else 0.0
+
+    @property
+    def minimum(self) -> float:
+        return float(min(self.values)) if self.values else 0.0
+
+    @property
+    def maximum(self) -> float:
+        return float(max(self.values)) if self.values else 0.0
+
+    @property
+    def stdev(self) -> float:
+        return float(np.std(self.values, ddof=1)) if len(self.values) > 1 else 0.0
+
+    @property
+    def n_samples(self) -> int:
+        return len(self.values)
+
+    def per_sample(self) -> str:
+        return ", ".join(
+            f"m{m}={v:.4f}" for m, v in zip(self.models, self.values)
+        )
+
+
+def score_boltz_run(
+    out_dir: str | Path,
+    pae_cutoff: float = 10.0,
+    dist_cutoff: float = 15.0,
+    *,
+    chain1: str = "A",
+    chain2: str = "B",
+    **kw,
+) -> tuple[RunScore, list[list[Record]]]:
+    """Score every diffusion sample of a run and aggregate by median.
+
+    Returns (RunScore for the chain1-chain2 `max` record, per-sample full
+    record lists) so nothing is thrown away -- the individual values, the
+    other chain-pair records and all the secondary metrics stay available.
+    """
+    samples = find_boltz_samples(out_dir)
+    models, values, chosen, every = [], [], [], []
+
+    for s in samples:
+        model = read_boltz_sample(s, **kw)
+        records = score_pairs(model, pae_cutoff, dist_cutoff)
+        every.append(records)
+        hit = next(
+            (
+                r
+                for r in records
+                if r.kind == "max"
+                and {r.chain1, r.chain2} == {chain1, chain2}
+            ),
+            None,
+        )
+        if hit is None:
+            raise ValueError(
+                f"no max record for {chain1}-{chain2} in {s.pae_npz.name}; "
+                f"chains present: {model.unique_chains}"
+            )
+        models.append(s.model)
+        values.append(hit.ipsae)
+        chosen.append(hit)
+
+    return (
+        RunScore(
+            run=samples[0].stem,
+            chain1=chain1,
+            chain2=chain2,
+            pae_cutoff=pae_cutoff,
+            dist_cutoff=dist_cutoff,
+            models=models,
+            values=values,
+            records=chosen,
+        ),
+        every,
+    )
 
 
 # --------------------------------------------------------------------------
@@ -875,7 +1047,46 @@ COLUMNS = (
 )
 
 
+def _main_boltz(out_dir: str, pae_cutoff: float, dist_cutoff: float) -> int:
+    """Score a whole Boltz run: every diffusion sample, aggregated by median."""
+    run, every = score_boltz_run(out_dir, pae_cutoff, dist_cutoff)
+    print(f"# run {run.run}  pae_cutoff={pae_cutoff}  dist_cutoff={dist_cutoff}")
+    print(f"# {run.n_samples} diffusion sample(s): {run.per_sample()}")
+    print()
+    print("\t".join(("run", "chain1", "chain2", "n", "median", "min", "max", "spread", "stdev")))
+    print(
+        "\t".join(
+            (
+                run.run, run.chain1, run.chain2, str(run.n_samples),
+                f"{run.median:.6f}", f"{run.minimum:.6f}", f"{run.maximum:.6f}",
+                f"{run.spread:.6f}", f"{run.stdev:.6f}",
+            )
+        )
+    )
+    print()
+    print("# per sample, all metrics")
+    print("\t".join(("model",) + COLUMNS))
+    for m, records in zip(run.models, every):
+        for r in records:
+            row = [str(m)]
+            for c in COLUMNS:
+                v = getattr(r, c)
+                row.append(f"{v:.6f}" if isinstance(v, float) else str(v))
+            print("\t".join(row))
+    return 0
+
+
 def main(argv: list[str]) -> int:
+    if len(argv) < 2:
+        print(__doc__.strip().splitlines()[-1])
+        return 2
+
+    # A directory means a Boltz run; two files mean an AF2-style pair.
+    if Path(argv[1]).is_dir():
+        pae_cutoff = float(argv[2]) if len(argv) > 2 else 10.0
+        dist_cutoff = float(argv[3]) if len(argv) > 3 else 15.0
+        return _main_boltz(argv[1], pae_cutoff, dist_cutoff)
+
     if len(argv) < 3:
         print(__doc__.strip().splitlines()[-1])
         return 2
