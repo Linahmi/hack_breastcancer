@@ -1,0 +1,20 @@
+# HERoes - trastuzumab scFv / HER2 interface (1N8Z)
+# chain A = VL (light), chain B = VH (heavy), chain C = HER2
+cartoon
+color lightgray
+hide atoms
+surface /C
+color /C #9db8da target s
+transparency /C 25 target s
+select /A:28,30,31,32,50,53,66,91,92,93,94 /B:33,50,52,57,58,59,99,103,104,105
+color sel red
+show sel atoms
+style sel stick
+name redContacts sel
+select /A:24,25,26,27,29,33,34,51,52,54,55,56,89,90,95,96,97 /B:31,32,34,35,51,53,54,55,56,60,61,62,63,64,65,66,100,101,102,106,107,108,109
+color sel lime
+show sel atoms
+style sel stick
+name greenMutable sel
+select clear
+view
