@@ -235,3 +235,54 @@ du scramblé (0,3357), ce qui donne 0,3×. Les deux sont justes et répondent à
 deux questions différentes : « l'écart dépasse-t-il le bruit d'un design
 sain ? » (oui) et « une seule seed suffit-elle à trancher ? » (non). Les
 deux chiffres bruts sont identiques entre nos deux dérivations.
+
+## Aida — POST-HOC CHECK (run after selection; did not change it)
+
+Labelled post-hoc deliberately. The 15 were already chosen and committed
+when these numbers were produced. `decisions.md` commits us, before any
+design score existed, to selection by diversity across arms plus sample
+spread within them. Nothing below was used to re-select, and no design
+was swapped. The question asked was only whether a different signal
+agrees with the choice.
+
+- **pDockQ2 and LIS recovered without new compute.** Hedi's `ipsae.py`
+  computes them (they are in its `COLUMNS`), but `score_designs.py` read
+  only `ipsae` and discarded the rest. Re-reading the 74 existing run
+  directories recovered them. No cofolding.
+
+- **Correlation with ipSAE median, across the 43 passing designs:**
+  pDockQ2 Pearson +0.649, Spearman +0.506. LIS Pearson +0.883,
+  Spearman +0.921. pDockQ Pearson +0.493, Spearman +0.273.
+
+- **A prediction recorded before these numbers existed was WRONG.** Aida
+  predicted pDockQ2 would correlate at 0.8 or above with ipSAE, on the
+  reasoning that both derive from the same PAE matrix. It came back at
+  0.649 Pearson / 0.506 Spearman. pDockQ2 is more independent of ipSAE
+  than expected. LIS, at 0.883/0.921, is the metric that behaved as
+  predicted — and is therefore the one carrying the least new
+  information.
+
+- **The chosen 15 are spread across the range, not clustered at the top.**
+  On pDockQ2 their ranks among the 43 are 2, 3, 5, 6, 10, 12, 14, 15, 17,
+  21, 29, 30, 33, 34, 36 — median rank 15 of 43, with 8 in the top 15 and
+  10 in the top half. On LIS: 1, 2, 3, 5, 7, 8, 12, 15, 17, 21, 25, 26,
+  29, 32, 38, also median rank 15. Chosen mean pDockQ2 0.5187 against
+  0.4840 for the 28 not picked; the single best pDockQ2 in the pool
+  (0.6758) is NOT in our 15.
+
+  So an orthogonal-ish signal **mildly agrees and does not endorse**. Our
+  pool is better than average on pDockQ2 but we did not pick its top. That
+  is the expected consequence of selecting on consistency and arm
+  diversity rather than on score magnitude, and it is the honest answer:
+  had we optimised pDockQ2 we would have chosen differently.
+
+- **Mean pLDDT, parsed from data already in `scored.csv`.** Parent mean
+  87.21 over 15 samples (range 85.7–88.8, per-seed means 87.40/87.42/86.80,
+  so seed-level spread 0.62). 13 of our 15 sit below the parent mean, span
+  85.72–87.34, largest deficit −1.49 (`esm2_only_07`). All 15 fall inside
+  the parent's own per-sample range, but the largest deficits exceed the
+  parent's seed-to-seed spread of 0.62, so they are not purely noise.
+  Flagged as a mild expression risk worth knowing, since expression is
+  published on ProteinBase. Not acted on: a 1.5-point pLDDT difference is
+  not a basis for swapping a design, and we had committed to the
+  criterion in advance.
