@@ -6,7 +6,7 @@ ESM2 650M for general protein constraints, AbLang2 for antibody-specific priors.
 
 ## 2. The finding
 
-Requiring both models to agree that some non-wild-type residue outranks the wild type, the filter fires on 16 of 21 HER2-contact residues, 76.2%, against 7 of 166 unlisted positions, 4.2%. That is roughly an eighteen-fold enrichment, Fisher's exact p around 7e-14, concentrated exactly where the antibody was engineered. Trastuzumab is a murine antibody humanised onto a human framework and then affinity matured, so its contact residues are deliberately atypical. For an already-optimised therapeutic, model surprise is ambiguous: the residue may be suboptimal, or engineered on purpose, and sequence alone cannot separate the two. The strongest signal our scans produced is also the one we trust least.
+Requiring both models to agree that some non-wild-type residue outranks the wild type, the filter fires on 15 of 20 HER2-contact residues, 75%, against 8 of 167 unlisted positions, 4.8%. That is roughly a sixteen-fold enrichment, Fisher's exact p around 1e-12, concentrated exactly where the antibody was engineered. The contact set is Ghita's, from `structure/red_green.csv` at commit `f0ee860`, which excludes water-mediated contacts. An earlier revision of that file counted position 201 as a contact and gives 16 of 21 against 7 of 166 instead; the figures here are the water-excluded ones. Trastuzumab is a murine antibody humanised onto a human framework and then affinity matured, so its contact residues are deliberately atypical. For an already-optimised therapeutic, model surprise is ambiguous: the residue may be suboptimal, or engineered on purpose, and sequence alone cannot separate the two. The strongest signal our scans produced is also the one we trust least.
 
 ## 3. How we handled it
 
@@ -26,6 +26,6 @@ The negative control is a scrambled CDR-H3 with composition preserved, run at se
 ## 5. What we do not know
 
 - The pool is exploratory, not comparative. Two to three working designs per arm cannot separate a 50% hit rate from 25%.
-- In the `aggressive` arm, mutation count and position choice are confounded. The arm needed nine mutations per design, and only 19 non-contact positions passed the consensus filter, so it ranged outside them across 28 positions, including hot spots 50, 99 and 226. `esm2_only` is the only arm that avoids this.
+- In the `aggressive` arm, mutation count and position choice are confounded. The arm needed nine mutations per design, and only 20 non-contact positions passed the consensus filter, so it ranged outside them across 28 positions, including hot spots 50, 99 and 226. `esm2_only` is the only arm that avoids this.
 - Neither model has ever seen HER2. They score how typical a residue is, which tracks stability and foldability more than binding affinity.
-- The second-shell region is unexplored. Only 7 of 166 unlisted positions passed the consensus filter, so we had no design space there. That emptiness is a consequence of our own filter choice, not a fact about the molecule.
+- The second-shell region is unexplored. Only 8 of 167 unlisted positions passed the consensus filter, so we had no design space there. That emptiness is a consequence of our own filter choice, not a fact about the molecule.

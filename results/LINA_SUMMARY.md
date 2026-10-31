@@ -67,18 +67,22 @@ sets:
   model-specific that requiring agreement is a real filter: 79 positions pass
   ESM2, 43 pass AbLang2, 35 pass both.
 
-## The finding: 76% against 4%
+## The finding: 75% against 4.8%
 
 Requiring both models to agree that some non-wild-type residue outranks the
-wild type, the filter fires on **16 of 21 HER2-contact residues (76.2%)**
-against **7 of 166 unlisted positions (4.2%)** — roughly an eighteen-fold
-enrichment, concentrated exactly where the antibody was engineered.
+wild type, the filter fires on **15 of 20 HER2-contact residues (75%)** against
+**8 of 167 unlisted positions (4.8%)** — roughly a sixteen-fold enrichment at
+Fisher's exact p ≈ 1.2e-12, concentrated exactly where the antibody was
+engineered.
 
-Fisher's exact p is around 7e-14. This was previously stated as 15 of 20
-against 8 of 167, computed on a stale copy of `structure/red_green.csv` which
-was missing contact position 201 and had wrong minimum distances at 58 and 163.
-The figures above use Ghita's authoritative file, merged in `16fa39f`, and the
-correction moves the finding slightly in its own favour.
+The contact set is Ghita's, from `structure/red_green.csv` at commit `f0ee860`,
+*"exclude crystallographic waters from the contact definition"*. **That commit
+is on `origin/ghita-structure` and is not yet merged**; the copy currently on
+`main` is the earlier `f01f504`, which counts position 201 as a contact through
+a water-mediated contact and yields 16 of 21 against 7 of 166 instead. The
+figures above are the water-excluded ones, because excluding waters is correct.
+Anyone recomputing this from `main` before that merge will get the other
+number — see **Verification**.
 
 What it means: trastuzumab's contact residues are deliberately atypical,
 murine loops grafted onto a human framework and then affinity matured. So model
@@ -147,12 +151,13 @@ construction, and the scramble sits only 0.048 above the spread gate.
   which tracks stability and foldability more than binding affinity. Nothing
   here is an affinity prediction.
 - **The `aggressive` arm is confounded.** Mutation count and position choice
-  move together: it needed nine mutations per design and only 19 non-contact
+  move together: it needed nine mutations per design and only 20 non-contact
   positions passed the consensus filter, so it ranged across 28 positions
   including the hot spots at 50, 99 and 226.
-- **The second shell is unexplored.** Only 7 of 166 unlisted positions passed
+- **The second shell is unexplored.** Only 8 of 167 unlisted positions passed
   the consensus filter, so there was no design space there. That emptiness is a
-  consequence of our filter choice, not a fact about the molecule.
+  consequence of our filter choice, not a fact about the molecule — and
+  Ghita's three-way file shows it is not even true: see the gradient below.
 - **The early returns are not evidence.** `contact_test` passing at 50% against
   80% for `consensus_green` is directionally consistent with prediction 5, but
   Fisher's exact on 5 of 10 against 8 of 10 gives p = 0.35.
@@ -167,18 +172,10 @@ Every figure in this file and in `results/rationale.md` was recomputed from
 `*_masked_marginals.csv`, `*_logprobs.npy`, `entropy.csv` and
 `structure/red_green.csv` on 31 October. The entropy figures, the cysteine
 probabilities, the Spearman coefficient and the 35 positions passing both
-models reproduced unchanged. Four figures did not, and `results/rationale.md`
-has been corrected to match this file. The superseded values are recorded here
-because they appear in the branch history and in anything drafted before
-31 October 15:30:
-
-- **The enrichment, previously 15 of 20 against 8 of 167.** Computed on a stale
-  `structure/red_green.csv`. On Ghita's authoritative file it is 16 of 21
-  against 7 of 166 — 76.2% against 4.2%, an eighteen-fold enrichment rather
-  than fifteen, Fisher's exact p 7e-14 rather than 1e-12. This is the
-  correction that matters for the pitch. Knock-on: the aggressive-arm
-  limitation said 20 non-contact positions passed the consensus filter; it is
-  19.
+models reproduced unchanged, as did the enrichment. Three figures did not, and
+`results/rationale.md` has been corrected to match this file. The superseded
+values are recorded here because they appear in the branch history and in
+anything drafted before 31 October 15:30:
 
 - **Recovery, previously 66.1% and 81.1%.** Those numbers gave each model its
   own denominator (242 and 227) and counted the excluded cysteine and linker
@@ -189,17 +186,41 @@ because they appear in the branch history and in anything drafted before
   difference in how the pass set was counted; the recomputation excludes the
   wild-type self-row, which scores exactly zero and is not a passing
   substitution. 43 for AbLang2 and 35 for both were unaffected.
-- **Unlisted positions, previously 167, now 166.** 167 is the
-  framework-position count, which is a different set from the
-  non-contact-listed positions.
+### The structure file, and one retracted correction
 
-Also worth flagging for the report: `results/positions.csv` is an empty header
-row. The contact/non-contact split used throughout is `structure/red_green.csv`,
-a two-way RED/GREEN classification of 61 positions. Ghita's three-way
-`category` file exists on `origin/ghita-structure`
-(`positions.csv regenerated protein-only, 201 is second shell`) and is still
-not merged — note that it reclassifies 201, the position whose absence caused
-the correction above, so the enrichment figure may move once more.
-`src/lina/dependencies.md` flagged precisely this risk: the second-shell arm
-needs the three-way category and not a red/green split, which is why that arm
-does not exist in the pool.
+`structure/red_green.csv` is Ghita's and has two revisions. `f01f504` (13:27)
+is what sits on `main`; `f0ee860` (13:58), on the unmerged
+`origin/ghita-structure`, excludes water-mediated contacts and drops position
+201 from the contact set. **Hers is the later and correct one, and this file
+uses it.**
+
+Between 15:24 and 15:30 on 31 October the enrichment in `rationale.md` was
+changed to 16 of 21 against 7 of 166 — computed from `main`'s copy without
+checking for a newer revision on her branch. That was wrong and has been
+reverted. The original 15 of 20 against 8 of 167 was correct all along, and so
+was the 167 figure, which is the unlisted count under her classification rather
+than a framework count. Recorded here because the wrong numbers are in the
+history between `55a4bde` and the revert.
+
+**Anyone recomputing the enrichment must take `red_green.csv` from
+`origin/ghita-structure`, not from `main`,** until that branch is merged.
+
+### The gradient, once her three-way file lands
+
+`results/positions.csv` on `main` is an empty header row. The full 242-row
+three-way file is on `origin/ghita-structure`, and it gives a strictly stronger
+result than the binary split — the pass rate falls monotonically with distance
+from the interface:
+
+| Category | n | Passing both models |
+|---|---|---|
+| `contact` | 20 | 15 (75.0%) |
+| `second_shell` | 21 | 8 (38.1%) |
+| `free` | 186 | 12 (6.5%) |
+
+This is worth building the pitch around instead of contact-against-everything.
+It also retires the second-shell limitation above: there are 8 passing
+positions there, so the design space exists and the red/green split was hiding
+it. `src/lina/dependencies.md` called this risk in advance — the second-shell
+arm needs the three-way `category`, not a red/green split — which is why that
+arm does not exist in the pool.
