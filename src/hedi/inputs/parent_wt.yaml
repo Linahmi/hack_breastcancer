@@ -1,0 +1,45 @@
+version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: EVQLVESGGGLVQPGGSLRLSCAASGFNIKDTYIHWVRQAPGKGLEWVARIYPTNGYTRYADSVKGRFTISADTSKNTAYLQMNSLRAEDTAVYYCSRWGGDGFYAMDYWGQGTLVTVSSGGGGSGGGGSGGGGSDIQMTQSPSSLSASVGDRVTITCRASQDVNTAVAWYQQKPGKAPKLLIYSASFLYSGVPSRFSGSRSGTDFTLTISSLQPEDFATYYCQQHYTTPPTFGQGTKVEIK
+  - protein:
+      id: B
+      sequence: CHQLCARGHCWGPGPTQCVNCSQFLRGQECVEECRVLQGLPREYVNARHCLPCHPECQPQNGSVTCFGPEADQCVACAHYKDPPFCVARCPSGVKPDLSYMPIWKFPDEEGACQPCPINCTHSCVDLDDKGCPAEQRASPLT
+constraints:
+  - bond:
+      atom1: [A, 22, SG]
+      atom2: [A, 96, SG]
+  - bond:
+      atom1: [A, 158, SG]
+      atom2: [A, 223, SG]
+  - bond:
+      atom1: [B, 1, SG]
+      atom2: [B, 10, SG]
+  - bond:
+      atom1: [B, 5, SG]
+      atom2: [B, 18, SG]
+  - bond:
+      atom1: [B, 21, SG]
+      atom2: [B, 30, SG]
+  - bond:
+      atom1: [B, 34, SG]
+      atom2: [B, 50, SG]
+  - bond:
+      atom1: [B, 53, SG]
+      atom2: [B, 66, SG]
+  - bond:
+      atom1: [B, 57, SG]
+      atom2: [B, 74, SG]
+  - bond:
+      atom1: [B, 77, SG]
+      atom2: [B, 86, SG]
+  - bond:
+      atom1: [B, 90, SG]
+      atom2: [B, 113, SG]
+  - bond:
+      atom1: [B, 116, SG]
+      atom2: [B, 124, SG]
+  - bond:
+      atom1: [B, 120, SG]
+      atom2: [B, 132, SG]
