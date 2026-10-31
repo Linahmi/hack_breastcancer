@@ -58,8 +58,8 @@ Les neuf runs de contrôle (3 contrôles × 3 seeds × 5 samples, réglages
 identiques) invalident l'agrégation par médiane seule.
 
 `cdrh3_scrambled` n'est pas décalé, il est **bimodal** : un sample soit
-s'arrime vers 0,87, soit s'effondre sous 0,3. Aucun des 45 samples ne tombe
-entre 0,42 et 0,75. Les effondrements sont réels, pas un artefact de scoring :
+s'arrime vers 0,81, soit s'effondre sous 0,07. Aucun des 45 samples ne tombe
+entre 0,07 et 0,54. Les effondrements sont réels, pas un artefact de scoring :
 l'ipTM_d0chn suit, n0res passe de 242 à 0, l'interface HER2 de 142 à 0, alors
 que le pLDDT moyen reste à 82-85 — les deux chaînes se replient, seule
 l'interface échoue.
@@ -68,20 +68,26 @@ l'interface échoue.
 |---|---|---|---|
 | parent_wt | 15/15 | 0,9078 | 0,029 – 0,130 |
 | reverse_vl_vh | 15/15 | 0,8842 | 0,061 – 0,121 |
-| cdrh3_scrambled | 7/15 | 0,2754 | 0,832 – 0,847 |
+| cdrh3_scrambled | 12/15 | 0,8002 | 0,348 – 0,898 |
+
+Chiffres sur la séquence effectivement repliée (97-109
+SRWGGDGFYAMDY → RMADDWGFYGSYG, aida 5327aaa). Vérifiés dans les 15 CIF
+déposés et les 3 `processed/structures/*.npz`, pas dans `run_meta.json`.
+Identiques, au chiffre près, à la dérivation indépendante d'Aida
+(`src/aida/controls_ipsae.txt`).
 
 Trois conséquences :
 
 - La médiane d'une variable bimodale rapporte le mode qui a gagné les cinq
-  tirages. `cdrh3_scrambled_seed1` médiane à 0,8873 et passerait n'importe
-  quel filtre de magnitude ; `seed2` à 0,1240. Même séquence, mêmes réglages,
-  seed différente. Un design jugé sur une seule seed peut être retenu par
-  pur tirage.
+  tirages. Les médianes par seed du scramblé vont de 0,8773 à 0,5416, soit
+  un empan de 0,3357 pour **une seule séquence à réglages fixes**, contre un
+  écart parent–scramblé de 0,1076. Un design jugé sur une seule seed peut
+  être retenu par pur tirage.
 - La magnitude d'ipSAE ne sépare pas le négatif : quand le scramblé s'arrime,
-  il marque 0,8729 contre 0,9050 pour le parent.
-- Ce qui sépare, c'est le **taux d'arrimage** (15/15 contre 7/15) et
-  l'**écart intra-seed**, parfaitement disjoints : parent et reverse à
-  0,1301 au plus, scramblé à 0,8321 au moins, facteur 6,4.
+  il marque 0,8113 contre 0,9050 pour le parent.
+- Ce qui sépare, c'est le **taux d'arrimage** (15/15 contre 12/15) et
+  l'**écart intra-seed**, disjoints : parent et reverse à 0,1301 au plus,
+  scramblé à 0,3481 au moins, facteur 2,7.
 
 **Nouvelle règle.** On filtre sur le taux d'arrimage et l'écart, pas sur la
 médiane :
@@ -93,11 +99,24 @@ médiane :
    autant une preuve d'affinité.
 
 Seuils calibrés sur les contrôles : les 6 bons runs passent, les 3 scramblés
-échouent, chacun sur les deux critères indépendamment. Ils reposent sur n=3
-par contrôle et restent provisoires : rien n'établit le taux d'effondrement
-réel du parent au-delà de « 0 sur 15 ». À revoir si des designs se groupent
-près d'une borne.
+échouent. Ils reposent sur n=3 par contrôle et restent provisoires : rien
+n'établit le taux d'effondrement réel du parent au-delà de « 0 sur 15 ».
+
+**La marge sur l'écart est mince et à surveiller.** Le scramblé le moins
+mauvais est à 0,3481 pour un seuil à 0,30, soit +0,048 ; `seed1` arrime 5/5
+et n'échoue que sur l'écart. Le critère d'arrimage ne porte donc plus seul :
+l'écart est devenu décisif. Sur la première version du scramblé (99-109,
+plus destructrice) la marge était de +0,53. À recalibrer dès que des designs
+se groupent près d'une borne, et ne pas traiter 0,30 comme établi.
 
 L'intuition de garder l'écart comme signal de fiabilité est confirmée. C'est
 le meilleur discriminateur des trois ; il devient une barrière, pas un
 départage.
+
+Note méthodologique sur le plancher de bruit : Aida rapporte l'écart
+parent–scramblé contre l'écart inter-seed **du parent** (0,0603), ce qui
+donne 1,78× et « résolu ». Nous rapportons aussi le même écart contre celui
+du scramblé (0,3357), ce qui donne 0,3×. Les deux sont justes et répondent à
+deux questions différentes : « l'écart dépasse-t-il le bruit d'un design
+sain ? » (oui) et « une seule seed suffit-elle à trancher ? » (non). Les
+deux chiffres bruts sont identiques entre nos deux dérivations.

@@ -93,18 +93,31 @@ def _new_liabilities(seq: str) -> list[str]:
 
 # The CDR-H3 permutation AS ACTUALLY RUN, from the nine control cofolds
 # (outputs/<run>/run_meta.json on the aida branch, identical across seeds
-# 1-3). It permutes positions 99-109 only -- CDR-H3 minus its leading SR --
-# not the full 97-109 span this module originally generated.
+# 1-3). It permutes the full CDR-H3 span 97-109.
 #
-# This is recorded, not regenerated. An earlier version of this file searched
-# seeds for its own permutation (97-109, SRWGGDGFYAMDY -> RMADDWGFYGSYG), and
-# that sequence was never folded. Keeping a generated sequence here while a
-# different one was scored is how a control silently stops describing the
-# experiment, so the as-run value is now the single source of truth and is
-# verified against the parent below.
-AS_RUN_SCRAMBLE_SPAN = (99, 109)          # 1-based, inclusive
-AS_RUN_SCRAMBLE_FROM = "WGGDGFYAMDY"
-AS_RUN_SCRAMBLE_TO = "GFDMAWYGYDG"
+# History, because this flipped twice and the next person deserves to know:
+#
+#   1. This module originally SEARCHED seeds for its own permutation and got
+#      97-109 SRWGGDGFYAMDY -> RMADDWGFYGSYG.
+#   2. The first control cofolds (aida dac6c33) were run with a different
+#      permutation, 99-109 WGGDGFYAMDY -> GFDMAWYGYDG, so for a while this
+#      file described a sequence nobody had folded.
+#   3. Aida then re-ran all three cdrh3_scrambled seeds from this module's
+#      YAML (aida 5327aaa), making 97-109 RMADDWGFYGSYG the folded sequence
+#      after all. parent_wt and reverse_vl_vh were not re-run; they were
+#      already byte-identical.
+#
+# The permutation is therefore pinned as a constant rather than regenerated:
+# a seed search that silently drifts is exactly how step 2 happened. Verified
+# against the deposited structures, not against run_meta.json, which was the
+# file in dispute. See AS_RUN_PROVENANCE.
+AS_RUN_SCRAMBLE_SPAN = (97, 109)          # 1-based, inclusive
+AS_RUN_SCRAMBLE_FROM = "SRWGGDGFYAMDY"
+AS_RUN_SCRAMBLE_TO = "RMADDWGFYGSYG"
+AS_RUN_PROVENANCE = (
+    "origin/aida 5327aaa; confirmed in all 15 deposited CIFs (3 seeds x 5 "
+    "diffusion samples) and in processed/structures/<run>.npz for all 3 seeds"
+)
 
 
 def scramble_cdrh3() -> tuple[str, str, str]:

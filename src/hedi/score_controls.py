@@ -203,14 +203,21 @@ def main(argv: list[str]) -> int:
                   f"{np.median(pw_hi):.4f} for the parent.")
             print("ipSAE MAGNITUDE therefore does not separate them; the DOCKING RATE does")
             print(f"({len(pw_hi)}/15 vs {len(cs_hi)}/15).")
-        print("\n*** WARNING on the median-of-5 aggregation: under this bimodality the")
-        print("    per-seed median reports whichever mode won that seed's 5 draws.")
-        print("    cdrh3_scrambled_seed1 medians at 0.8873 and would pass any")
-        print("    magnitude filter, while seed2 medians at 0.1240. A design scored")
-        print("    on one seed of 5 samples can be called good purely by draw.")
-        print("    Recommend gating on docking rate (and/or spread) BEFORE comparing")
-        print("    medians, and raising this with the team: decisions.md currently")
-        print("    commits to median aggregation alone.")
+        # Computed, not hardcoded: these numbers moved once already when the
+        # scramble was re-run, and a stale literal in a warning is worse than
+        # no warning.
+        cs_runs = {r: v for r, v in runs.items() if control_of(r) == "cdrh3_scrambled"}
+        best = max(cs_runs, key=lambda r: float(np.median(cs_runs[r])))
+        worst = min(cs_runs, key=lambda r: float(np.median(cs_runs[r])))
+        hi_med, lo_med = float(np.median(cs_runs[best])), float(np.median(cs_runs[worst]))
+        print("\n*** WARNING on median-of-5 aggregation: the broken control's own")
+        print("    per-seed median is unstable, because the median reports whichever")
+        print(f"    mode won that seed's draws. {best} medians at {hi_med:.4f},")
+        print(f"    {worst} at {lo_med:.4f} -- a span of {hi_med-lo_med:.4f} for one")
+        print(f"    sequence at fixed settings, against a parent-to-scramble gap of")
+        print(f"    {np.median(pw)-np.median(cs):.4f}. A design judged on one seed can be")
+        print("    called good purely by draw. Gate on docking rate and spread first;")
+        print("    decisions.md is amended accordingly.")
 
     # ---- the gate, applied to each run ----
     # If the gate is right, the six good control runs pass and the three
