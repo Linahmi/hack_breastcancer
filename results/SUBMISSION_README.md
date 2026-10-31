@@ -42,3 +42,22 @@ Caveat we would rather state than have found: our filter tests whether
 the predicted complex forms stably. It does not predict affinity. A
 deliberate anti-design control passed it.
 
+## Two files, and which to use
+
+- **`results/submission_43.csv` / `.xlsx`** — all 43 designs that passed our
+  stability gate, **ordered by testing priority**.
+  - **Rows 1-15, `tier = lab_round_1`** — our selection for lab round 1.
+  - **Rows 16-43, `tier = winner_extension`** — all remaining designs that
+    passed the gate, ordered by the same rule, for the 45-design extension.
+  - The list stops at 43. We did not pad it with designs that failed the gate.
+- **`results/final_15.csv` / `.xlsx`** — the 15 of round 1 on their own.
+
+**Ordered by testing priority: round-robin across design strategies, then
+lowest sample spread. ipSAE is reported as a gate statistic, not a ranking.**
+Round-robin means consecutive rows come from different design strategies, so
+testing the first N designs covers as many approaches as possible for any N.
+Strategies are entered in order of their single tightest design.
+
+Extra columns in the 43-row file: `priority` (1-43), `tier`, `pdockq2` (a
+second interface score, independent of ipSAE at r = 0.65), and `plddt_mean`
+(mean predicted fold confidence, 0-100; the parent scores 87.2).
