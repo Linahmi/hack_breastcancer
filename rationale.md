@@ -224,21 +224,53 @@ n_mut    n   PASS   median spread
 Position choice, not perturbation size, is what mattered. The
 low-perturbation explanation for the `esm2_only` result is ruled out.
 
-### Literature at 25% is a result, not a gap in our data
+### The literature arm is two hypotheses, and they must not be blended
 
-The `literature` arm draws on a published alanine scan. It is the
-**weakest arm we scored** — 6/10, 60%, against 75–100% for every arm
-except `contact_test`. Its first four designs passed at only 1/4. That is
-a finding worth stating rather than an arm to quietly drop: mutations
-reported in the literature for this target transferred least well into
-this scFv format. Format matters, and published hotspot data does not
-arrive format-free.
+Our first reading — "published mutations transfer poorly" — was wrong,
+because the arm is heterogeneous. Of the 10 designs labelled `literature`,
+only 6 carry an actual published mutation; the other 4 are
+hotspot-excluded designs, which are consensus designs with a constraint.
+Those test different questions and have to be reported separately.
 
-The D102 head-to-head was built to test one such mutation directly —
-D102W from a published alanine scan against D102S chosen by the PLMs, on
-backgrounds matched for 5/5 docking. Result: **D102W 4/6 PASS, D102S 8/11
-PASS, Fisher p = 1.000.** Indistinguishable. n is too small to separate
-them and we do not claim otherwise.
+**Does a published affinity-improving mutation reproduce? D102W.**
+
+```
+D102W            4/6 PASS (67%)   median spread 0.1792
+  lit_d102w_pair_04   PASS  5/5  spread 0.0535  median 0.8812
+  lit_d102w_pair_02   PASS  5/5  spread 0.0737  median 0.9240
+  lit_d102w_pair_03   PASS  5/5  spread 0.1727  median 0.7751
+  literature_02       PASS  5/5  spread 0.1857  median 0.8534
+  lit_d102w_pair_01   REJECT 5/5 spread 0.3530  median 0.7387
+  literature_01       REJECT 3/5 spread 0.4773  median 0.8285
+```
+
+Yes, mostly. D102W reproduces on 4 of 6 matched backgrounds. Against
+D102S — the residue the PLMs chose at the same position — it is
+**indistinguishable**: D102W 4/6 versus D102S 8/11, Fisher two-sided
+**p = 1.000**. Two independent routes to the same position, picked by a
+published alanine scan and by two protein language models, give
+statistically identical results. We do not claim a winner; n is too small.
+
+**Do hotspot-excluded designs work? A different question.**
+
+```
+hotspot_excluded 2/4 PASS (50%)   median spread 0.4390
+  lit_hotspot_excluded_02  PASS   5/5  spread 0.0345  median 0.9176
+  lit_hotspot_excluded_01  PASS   5/5  spread 0.2608  median 0.8490
+  literature_04            REJECT 4/5  spread 0.6173  median 0.5776
+  literature_03            REJECT 2/5  spread 0.8654  median 0.4955
+```
+
+Half pass, and the failures are severe — median spreads of 0.62 and 0.87.
+Excluding the published hotspot positions and designing around them is the
+weaker strategy here, which is the opposite conclusion from the D102W
+result and is exactly why the blended 60% figure was uninformative.
+
+One construction caveat we should fix rather than paper over:
+`lit_hotspot_excluded_01` carries **D102S**, so it mutates the very
+hotspot its label says it excludes. It is also the design that tripped our
+spread watchpoint at 0.2608. Treat it as mislabelled, not as evidence
+either way.
 
 ### Cross-validation
 

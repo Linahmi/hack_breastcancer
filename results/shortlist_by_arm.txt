@@ -4,7 +4,7 @@ consensus_green        8    2  10    80%     5.60      0.1091  need 3  OK
 contact_test           5    5  10    50%     6.00      0.3479  need 3  OK
 germline_revert        6    2   8    75%     6.00      0.1098  need 3  OK
 aggressive             6    2   8    75%     9.00      0.1719  need 2  OK
-literature             6    4  10    60%     5.30      0.2233  need 1  OK
+literature             6    4  10    60%     5.30      0.2233  need 2  OK
 esm2_only             12    0  12   100%     6.08      0.0956  need 3  OK
 TOTAL                 43   15  58    74%
 
@@ -135,7 +135,7 @@ D102W: 4/6 PASS
      9 mut: N28T;N55G;Y57D;F104D;M107L;A169S;Y190Q;T228S;T229Y
      samples: 0.8819 0.8096 0.7753 0.7804 0.6527
 
-### literature  (pick 1 of 6 passing)
+### literature  (pick 2 of 6 passing)
   1. lit_hotspot_excluded_02    spread 0.0345  dock 5/5  median 0.9176  ipTM 0.9403   <-- shares positions with lit_d102w_pair_04
      5 mut: T32Y;N55G;M107L;V164I;Y190Q
      samples: 0.9259 0.9108 0.9214 0.8914 0.9176
