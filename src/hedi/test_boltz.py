@@ -14,9 +14,13 @@ Covered here:
   * token-vs-residue PAE shape mismatch
   * chain identity from the structure, never from confidence_*.json
 
-Optionally also re-scores a real run for regression:
+Also re-scores a real Boltz run, which is REQUIRED, not optional:
 
-    IPSAE_BOLTZ_RUN=/path/to/outputs/parent_quick python -I src/hedi/test_boltz.py
+    IPSAE_BOLTZ_RUN=/path/to/outputs/parent_wt_seed1 python -I src/hedi/test_boltz.py
+
+The synthetic trees are written by this same file, so alone they only prove
+the reader is self-consistent. They cannot catch a wrong array key or a real
+layout change. Without IPSAE_BOLTZ_RUN this suite FAILS.
 """
 
 from __future__ import annotations
@@ -266,16 +270,29 @@ def main() -> int:
         if run.minimum != min(run.values) or run.maximum != max(run.values):
             problems.append("min/max properties disagree with values")
 
-    # ---- 11. optional: regression against a real run ----
+    # ---- 11. regression against a real run (REQUIRED) ----
+    # Not optional. The synthetic trees above are written by this file, so on
+    # their own they only prove the reader is self-consistent -- they cannot
+    # catch a wrong array key, a layout Boltz actually emits, or a shape
+    # convention change. Only a real run can. Passing without it would be a
+    # green result that validated nothing real.
     real_run = os.environ.get("IPSAE_BOLTZ_RUN")
-    if real_run:
+    if not real_run:
+        problems.append(
+            "IPSAE_BOLTZ_RUN is not set, so the reader was never run against "
+            "real Boltz output. The synthetic fixtures are written by this "
+            "same file and cannot catch a wrong array key or a real layout "
+            "change. Point it at a Boltz run directory, e.g. "
+            "outputs/parent_wt_seed1."
+        )
+    else:
         run, _ = score_boltz_run(real_run, 10.0, 15.0)
         print(f"real run {run.run}: n={run.n_samples} median={run.median:.6f} "
               f"spread={run.spread:.6f} [{run.per_sample()}]")
         if not 0.0 <= run.median <= 1.0:
             problems.append(f"real run median {run.median} out of range")
-    else:
-        print("(set IPSAE_BOLTZ_RUN to also re-score a real run)")
+        if run.n_samples < 1:
+            problems.append("real run produced no samples")
 
     print(f"boltz reader: {len(problems)} problem(s)")
     for p in problems:

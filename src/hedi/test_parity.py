@@ -14,7 +14,9 @@ copy (MIT licensed, https://github.com/DunbrackLab/IPSAE):
 
     IPSAE_REF=/path/to/ipsae.py python -I src/hedi/test_parity.py
 
-Without it the test skips rather than silently passing.
+IPSAE_REF is REQUIRED. Without it this suite FAILS rather than skipping: it
+exists only to compare against the reference, so a run that made no
+comparison has proved nothing and must not report success.
 """
 
 from __future__ import annotations
@@ -197,9 +199,17 @@ def check_fixture(ref: Path, manifest: dict, pae_cut: float, dist_cut: float) ->
 def main() -> int:
     ref_env = os.environ.get("IPSAE_REF")
     if not ref_env:
-        print("SKIP: set IPSAE_REF to a local copy of the reference ipsae.py")
+        # Deliberately a failure, not a skip. This suite's entire job is to
+        # compare against the reference; without it there is nothing to
+        # compare and the run proves nothing. A suite that exits 0 having
+        # validated nothing is worse than no suite, because CI goes green
+        # and everyone stops looking.
+        print("FAIL: IPSAE_REF is not set, so no parity comparison was made.")
+        print("      This suite validates nothing without it and will not")
+        print("      report success. Point IPSAE_REF at a local copy of the")
+        print("      reference ipsae.py (MIT licensed):")
         print("      https://github.com/DunbrackLab/IPSAE")
-        return 0
+        return 1
     ref = Path(ref_env)
     if not ref.is_file():
         print(f"FAIL: IPSAE_REF={ref} is not a file")

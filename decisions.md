@@ -102,16 +102,56 @@ Seuils calibrés sur les contrôles : les 6 bons runs passent, les 3 scramblés
 échouent. Ils reposent sur n=3 par contrôle et restent provisoires : rien
 n'établit le taux d'effondrement réel du parent au-delà de « 0 sur 15 ».
 
-**La marge sur l'écart est mince et à surveiller.** Le scramblé le moins
-mauvais est à 0,3481 pour un seuil à 0,30, soit +0,048 ; `seed1` arrime 5/5
-et n'échoue que sur l'écart. Le critère d'arrimage ne porte donc plus seul :
-l'écart est devenu décisif. Sur la première version du scramblé (99-109,
-plus destructrice) la marge était de +0,53. À recalibrer dès que des designs
-se groupent près d'une borne, et ne pas traiter 0,30 comme établi.
+**La marge sur l'écart est mince, et nous ne refittons pas.**
+
+Le seuil est à 0,30. De part et d'autre :
+
+| | écart intra-run | marge au seuil |
+|---|---|---|
+| contrôle négatif le moins mauvais (`cdrh3_scrambled_seed1`) | 0,3481 | +0,0481 |
+| design retenu le plus serré | 0,2608 | −0,0392 |
+
+Le seuil ne tient donc plus qu'à 0,048 du côté négatif et 0,039 du côté
+positif. `seed1` arrime 5/5 et n'échoue que sur l'écart : le critère
+d'arrimage ne porte plus seul, l'écart est devenu décisif.
+
+**Nous ne recalibrons pas.** Refitter 0,30 maintenant que la distribution est
+connue, c'est ajuster le seuil sur la réponse : le seuil cesserait d'être une
+prédiction pour devenir une description, et il n'aurait plus aucun pouvoir de
+rejet. Le seuil reste à 0,30, tel qu'il a été fixé avant d'avoir vu ces
+designs, et la marge est rapportée telle quelle. Si elle est jugée trop
+mince, le remède est **plus de contrôles**, pas un seuil déplacé.
+
+Conséquence à assumer : avec 0,039 de marge, un design situé près de la
+bordure n'est pas départagé par ce seuil. Les designs concernés doivent être
+traités comme indéterminés, pas comme retenus.
 
 L'intuition de garder l'écart comme signal de fiabilité est confirmée. C'est
 le meilleur discriminateur des trois ; il devient une barrière, pas un
 départage.
+
+### Deux scramblés, de sévérité différente
+
+Il existe deux contrôles négatifs CDR-H3, et ils ne se valent pas :
+
+| scramblé | fenêtre | permutation | arrimés | médiane | écart min |
+|---|---|---|---|---|---|
+| A (Aida) | 99-109 | WGGDGFYAMDY → GFDMAWYGYDG | 7/15 | 0,2754 | 0,832 |
+| B (Hedi) | 97-109 | SRWGGDGFYAMDY → RMADDWGFYGSYG | 12/15 | 0,8002 | 0,348 |
+
+B est le moins destructeur des deux, malgré une fenêtre plus large : il
+conserve `GFYG` en place et l'interface se reforme la plupart du temps.
+
+**Le seuil de 0,30 a été calibré sur A**, le plus sévère, dont l'écart
+minimal était à 0,832 — d'où la marge confortable de +0,53 à l'époque. Il est
+aujourd'hui évalué contre B, à 0,348, d'où les +0,048 ci-dessus. Le seuil n'a
+pas bougé ; c'est le contrôle qui a changé, parce que les répertoires
+`cdrh3_scrambled_*` ont été re-roulés depuis le YAML de B (aida 5327aaa).
+
+Seul B est actuellement sur disque : les fichiers de A ont été remplacés par
+le re-run, et ses chiffres ci-dessus proviennent du scoring effectué sur le
+snapshot dac6c33. Relancer A comme second négatif rétablirait une marge
+large, et deux négatifs de sévérité inégale renseignent plus qu'un seul.
 
 Note méthodologique sur le plancher de bruit : Aida rapporte l'écart
 parent–scramblé contre l'écart inter-seed **du parent** (0,0603), ce qui
