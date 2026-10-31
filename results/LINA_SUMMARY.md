@@ -74,11 +74,11 @@ wild type, the filter fires on **16 of 21 HER2-contact residues (76.2%)**
 against **7 of 166 unlisted positions (4.2%)** — roughly an eighteen-fold
 enrichment, concentrated exactly where the antibody was engineered.
 
-`results/rationale.md` states this as 15 of 20 against 8 of 167. That version
-was computed on a stale copy of `structure/red_green.csv` which was missing
-contact position 201 and had wrong minimum distances at 58 and 163. The figures
-above use Ghita's authoritative file, merged in `16fa39f`. The correction moves
-the finding slightly in its own favour; rationale.md still needs updating.
+Fisher's exact p is around 7e-14. This was previously stated as 15 of 20
+against 8 of 167, computed on a stale copy of `structure/red_green.csv` which
+was missing contact position 201 and had wrong minimum distances at 58 and 163.
+The figures above use Ghita's authoritative file, merged in `16fa39f`, and the
+correction moves the finding slightly in its own favour.
 
 What it means: trastuzumab's contact residues are deliberately atypical,
 murine loops grafted onto a human framework and then affinity matured. So model
@@ -147,7 +147,7 @@ construction, and the scramble sits only 0.048 above the spread gate.
   which tracks stability and foldability more than binding affinity. Nothing
   here is an affinity prediction.
 - **The `aggressive` arm is confounded.** Mutation count and position choice
-  move together: it needed nine mutations per design and only 20 non-contact
+  move together: it needed nine mutations per design and only 19 non-contact
   positions passed the consensus filter, so it ranged across 28 positions
   including the hot spots at 50, 99 and 226.
 - **The second shell is unexplored.** Only 7 of 166 unlisted positions passed
@@ -163,28 +163,35 @@ construction, and the scramble sits only 0.048 above the spread gate.
 
 ## Verification
 
-Recomputed from `*_masked_marginals.csv`, `*_logprobs.npy`, `entropy.csv` and
+Every figure in this file and in `results/rationale.md` was recomputed from
+`*_masked_marginals.csv`, `*_logprobs.npy`, `entropy.csv` and
 `structure/red_green.csv` on 31 October. The entropy figures, the cysteine
 probabilities, the Spearman coefficient and the 35 positions passing both
-models all reproduce exactly. Four figures in `results/rationale.md` differ and
-the numbers above are the recomputed ones:
+models reproduced unchanged. Four figures did not, and `results/rationale.md`
+has been corrected to match this file. The superseded values are recorded here
+because they appear in the branch history and in anything drafted before
+31 October 15:30:
 
-- **The enrichment, 15 of 20 against 8 of 167.** rationale.md used a stale
+- **The enrichment, previously 15 of 20 against 8 of 167.** Computed on a stale
   `structure/red_green.csv`. On Ghita's authoritative file it is 16 of 21
   against 7 of 166 — 76.2% against 4.2%, an eighteen-fold enrichment rather
-  than fifteen. This is the single correction that matters for the pitch.
-  Knock-on: the aggressive-arm limitation in rationale.md says 20 non-contact
-  positions passed the consensus filter; it is 19.
+  than fifteen, Fisher's exact p 7e-14 rather than 1e-12. This is the
+  correction that matters for the pitch. Knock-on: the aggressive-arm
+  limitation said 20 non-contact positions passed the consensus filter; it is
+  19.
 
-- **Recovery, 66.1%/81.1% against 64.6%/80.7%.** The prose computes each model
-  over its own denominator (242 and 227) and counts the excluded cysteine and
-  linker positions as recovered, which makes the two models not directly
-  comparable. On the 223 positions both models actually score, it is 64.6% and
-  80.7%. The conclusion — AbLang2 has the sharper priors — is unchanged.
-- **Positions passing ESM2, 82 against 79.** Unreconciled; a three-position
-  difference in how the pass set is counted.
-- **Unlisted positions, 167 against 166.** 167 is the framework-position count,
-  which is a different set from the non-contact-listed positions.
+- **Recovery, previously 66.1% and 81.1%.** Those numbers gave each model its
+  own denominator (242 and 227) and counted the excluded cysteine and linker
+  positions as recovered, which made the two models not directly comparable.
+  On the 223 positions both models actually score it is 64.6% and 80.7%. The
+  conclusion — AbLang2 has the sharper priors — is unchanged.
+- **Positions passing ESM2, previously 82, now 79.** A three-position
+  difference in how the pass set was counted; the recomputation excludes the
+  wild-type self-row, which scores exactly zero and is not a passing
+  substitution. 43 for AbLang2 and 35 for both were unaffected.
+- **Unlisted positions, previously 167, now 166.** 167 is the
+  framework-position count, which is a different set from the
+  non-contact-listed positions.
 
 Also worth flagging for the report: `results/positions.csv` is an empty header
 row. The contact/non-contact split used throughout is `structure/red_green.csv`,
