@@ -1,0 +1,27 @@
+version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: EVQLVESGGGLVQPGGSLRLSCAASGFNIKDTYIHWVRQAPGKGLEWVARIYPTNGYTRYADSVKGRFTISADTSKNTAYLQMNSLRAEDTAVYYCSRWGGDGFYAMDYWGQGTLVTVSSGGGGSGGGGSGGGGSDIQMTQSPSSLSASVGDRVTITCRASQDVNTAVAWYQQKPGKAPKLLIYSASFLYSGVPSRFSGSRSGTDFTLTISSLQPEDFATYYCQQHYTTPPTFGQGTKVEIK
+  - protein:
+      id: B
+      sequence: CHPECQPQNGSVTCFGPEADQCVACAHYKDPPFCVARCPSGVKPDLSYMPIWKFPDEEGACQPCPINCTHSCVDLDDKGC
+constraints:
+  - bond:
+      atom1: [B, 1, SG]
+      atom2: [B, 14, SG]
+  - bond:
+      atom1: [B, 5, SG]
+      atom2: [B, 22, SG]
+  - bond:
+      atom1: [B, 25, SG]
+      atom2: [B, 34, SG]
+  - bond:
+      atom1: [B, 38, SG]
+      atom2: [B, 61, SG]
+  - bond:
+      atom1: [B, 64, SG]
+      atom2: [B, 72, SG]
+  - bond:
+      atom1: [B, 68, SG]
+      atom2: [B, 80, SG]

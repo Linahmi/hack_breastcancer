@@ -1,0 +1,194 @@
+=== SIX-ARM TABLE (all 58 designs) ===
+arm                 PASS  REJ   n   rate mean_mut  med_spread  target
+consensus_green        8    2  10    80%     5.60      0.1091  need 3  OK
+contact_test           5    5  10    50%     6.00      0.3479  need 3  OK
+germline_revert        6    2   8    75%     6.00      0.1098  need 3  OK
+aggressive             6    2   8    75%     9.00      0.1719  need 2  OK
+literature             6    4  10    60%     5.30      0.2233  need 2  OK
+esm2_only             12    0  12   100%     6.08      0.0956  need 3  OK
+TOTAL                 43   15  58    74%
+
+=== BAND ===
+  PASS max 0.2608   REJECT min 0.3229   band 0.0621
+  PASS over 0.25 (refit trigger): [('lit_hotspot_excluded_01', 0.2608)]
+
+=== esm2_only DOSE-RESPONSE (fixed position set) ===
+ n_mut   n  PASS  med_spread  med_ipsae
+     5   8     8      0.1020     0.8912
+     7   1     1      0.0581     0.8802
+     8   1     1      0.1160     0.9057
+     9   2     2      0.0619     0.8902
+  5 mut  : n=8 median spread 0.1020
+  7-9 mut: n=4 median spread 0.0619
+  -> TIGHTER at higher count
+
+  esm2_only 12/12 vs consensus_green 8/10  Fisher two-sided p = 0.195
+
+=== D102 HEAD-TO-HEAD ===
+D102S: 8/11 PASS
+    consensus_green_03         PASS    dock 5/5 spread 0.0247 med 0.9265 arm=consensus_green
+    consensus_green_07         PASS    dock 5/5 spread 0.0732 med 0.9093 arm=consensus_green
+    consensus_green_10         PASS    dock 5/5 spread 0.0733 med 0.8914 arm=consensus_green
+    w01_aggressive_02          PASS    dock 5/5 spread 0.1019 med 0.8757 arm=aggressive
+    consensus_green_09         PASS    dock 5/5 spread 0.1067 med 0.8999 arm=consensus_green
+    consensus_green_04         PASS    dock 5/5 spread 0.1710 med 0.8760 arm=consensus_green
+    aggressive_07              PASS    dock 5/5 spread 0.1954 med 0.8340 arm=aggressive
+    lit_hotspot_excluded_01    PASS    dock 5/5 spread 0.2608 med 0.8490 arm=literature
+    consensus_green_08         REJECT  dock 4/5 spread 0.5695 med 0.8600 arm=consensus_green
+    aggressive_04              REJECT  dock 3/5 spread 0.8865 med 0.5497 arm=aggressive
+    w01_consensus_green_01     REJECT  dock 3/5 spread 0.9003 med 0.6553 arm=consensus_green
+D102W: 4/6 PASS
+    lit_d102w_pair_04          PASS    dock 5/5 spread 0.0535 med 0.8812 arm=literature
+    lit_d102w_pair_02          PASS    dock 5/5 spread 0.0737 med 0.9240 arm=literature
+    lit_d102w_pair_03          PASS    dock 5/5 spread 0.1727 med 0.7751 arm=literature
+    literature_02              PASS    dock 5/5 spread 0.1857 med 0.8534 arm=literature
+    lit_d102w_pair_01          REJECT  dock 5/5 spread 0.3530 med 0.7387 arm=literature
+    literature_01              REJECT  dock 3/5 spread 0.4773 med 0.8285 arm=literature
+
+  D102W 4/6 vs D102S 8/11  Fisher two-sided p = 1.000
+
+
+==============================================================================
+=== SHORTLIST per arm: PASSING designs, tightest spread first ===
+==============================================================================
+
+### consensus_green  (pick 3 of 8 passing)
+  1. consensus_green_03         spread 0.0247  dock 5/5  median 0.9265  ipTM 0.9448
+     6 mut: T54G;D102S;A106Y;V164I;A169S;Y190Q
+     samples: 0.9360 0.9230 0.9265 0.9360 0.9113
+  2. w01_consensus_green_02     spread 0.0721  dock 5/5  median 0.9246  ipTM 0.9431
+     5 mut: T32Y;T54G;M107L;V164I;A169S
+     samples: 0.9246 0.9308 0.9292 0.9145 0.8587
+  3. consensus_green_07         spread 0.0732  dock 5/5  median 0.9093  ipTM 0.9366
+     5 mut: N55G;D102S;M107L;A169S;Y190Q
+     samples: 0.9241 0.9211 0.9093 0.8998 0.8509
+  4. consensus_green_10         spread 0.0733  dock 5/5  median 0.8914  ipTM 0.9247
+     6 mut: T32Y;T54G;D102S;M107L;V168L;Y190Q
+     samples: 0.9080 0.8963 0.8348 0.8914 0.8762
+  5. consensus_green_09         spread 0.1067  dock 5/5  median 0.8999  ipTM 0.9303
+     6 mut: T32Y;T54G;N55G;D102S;V164I;Y190Q
+     samples: 0.9259 0.8999 0.8824 0.9307 0.8240
+  6. consensus_green_06         spread 0.1116  dock 5/5  median 0.9340  ipTM 0.9500
+     5 mut: T54G;N55G;A106Y;V168L;A169S
+     samples: 0.9479 0.9413 0.9340 0.9009 0.8362
+  7. consensus_green_05         spread 0.1604  dock 5/5  median 0.8625  ipTM 0.9076
+     5 mut: A106Y;M107L;V164I;V168L;Y190Q
+     samples: 0.9312 0.9410 0.8625 0.8348 0.7806
+  8. consensus_green_04         spread 0.1710  dock 5/5  median 0.8760  ipTM 0.9164
+     6 mut: T54G;N55G;D102S;M107L;V164I;V168L
+     samples: 0.9191 0.9237 0.8508 0.7528 0.8760
+
+### contact_test  (pick 3 of 5 passing)
+  1. contact_test_07            spread 0.0577  dock 5/5  median 0.9077  ipTM 0.9314
+     6 mut: F104D;T166Y;A167Y;R201G;H226Y;T229Y
+     samples: 0.8861 0.9405 0.9195 0.9077 0.8829
+  2. contact_test_10            spread 0.0674  dock 5/5  median 0.8785  ipTM 0.9157
+     6 mut: R59Y;T166Y;A167Y;F188S;T228S;T229Y
+     samples: 0.9072 0.8785 0.8419 0.9093 0.8719
+  3. contact_test_09            spread 0.0873  dock 5/5  median 0.9194  ipTM 0.9393
+     6 mut: R59Y;F104D;N165S;A167Y;S185G;T229Y
+     samples: 0.9504 0.9153 0.9194 0.8631 0.9212
+  4. w01_contact_test_01        spread 0.1440  dock 5/5  median 0.8554  ipTM 0.9018
+     6 mut: R59Y;N165S;F188S;R201G;H226Y;T229Y
+     samples: 0.9063 0.9278 0.8554 0.7837 0.7909
+  5. w01_contact_test_02        spread 0.1899  dock 5/5  median 0.8663  ipTM 0.9136
+     6 mut: R50Y;F104D;T166Y;A167Y;S185G;T228S
+     samples: 0.8903 0.8741 0.8521 0.8663 0.7003
+
+### germline_revert  (pick 3 of 6 passing)
+  1. w01_germline_revert_02     spread 0.0638  dock 5/5  median 0.9369  ipTM 0.9516
+     6 mut: N28T;N55G;R59Y;S97A;V164I;A167Y
+     samples: 0.9454 0.9369 0.9141 0.8872 0.9510
+  2. germline_revert_06         spread 0.0870  dock 5/5  median 0.8839  ipTM 0.9169
+     6 mut: N28T;K30S;T32N;R59Y;N165S;T166S
+     samples: 0.9253 0.9134 0.8383 0.8779 0.8839
+  3. germline_revert_03         spread 0.0924  dock 5/5  median 0.8788  ipTM 0.9145
+     6 mut: T32N;A72R;S97A;N165S;V168L;H226S
+     samples: 0.8973 0.8470 0.9116 0.8788 0.8191
+  4. germline_revert_04         spread 0.0953  dock 5/5  median 0.9029  ipTM 0.9290
+     6 mut: N55G;S97A;N165S;T166S;F188S;Y190Q
+     samples: 0.9290 0.9483 0.9029 0.8530 0.8765
+  5. w01_germline_revert_01     spread 0.1243  dock 5/5  median 0.8519  ipTM 0.9059
+     6 mut: N28T;K30S;A72R;F188S;Y190Q;R201G
+     samples: 0.9034 0.8906 0.8519 0.7973 0.7791
+  6. germline_revert_07         spread 0.1939  dock 5/5  median 0.8936  ipTM 0.9239
+     6 mut: R59Y;A167Y;V168L;F188S;Y190Q;H226S
+     samples: 0.9450 0.9412 0.8279 0.8936 0.7511
+
+### aggressive  (pick 2 of 6 passing)
+  1. aggressive_08              spread 0.0789  dock 5/5  median 0.9336  ipTM 0.9482
+     9 mut: T32Y;T54G;N55G;A72R;A79V;D163G;A167Y;S185G;H226Y
+     samples: 0.9436 0.9336 0.8647 0.9365 0.8940
+  2. w01_aggressive_02          spread 0.1019  dock 5/5  median 0.8757  ipTM 0.9162
+     9 mut: Y57D;A72R;A79V;S97A;D102S;F104D;D163G;A169S;T229Y
+     samples: 0.9050 0.8757 0.8941 0.8031 0.8269
+  3. w01_aggressive_01          spread 0.1046  dock 5/5  median 0.8761  ipTM 0.9139
+     9 mut: N28T;K30S;T32Y;R50Y;A169S;S185G;R201G;T228S;T229Y
+     samples: 0.8761 0.9118 0.8270 0.8787 0.8072
+  4. aggressive_05              spread 0.1483  dock 5/5  median 0.9081  ipTM 0.9336
+     9 mut: N28T;K30S;T32Y;A79V;S97A;M107L;D163G;H226Y;T229Y
+     samples: 0.9464 0.9410 0.9081 0.8904 0.7980
+  5. aggressive_07              spread 0.1954  dock 5/5  median 0.8340  ipTM 0.9017
+     9 mut: T32Y;T54G;A72R;A79V;D102S;N165S;T166Y;T228S;T229Y
+     samples: 0.9439 0.8340 0.9348 0.7877 0.7485
+  6. aggressive_06              spread 0.2293  dock 5/5  median 0.7804  ipTM 0.8769
+     9 mut: N28T;N55G;Y57D;F104D;M107L;A169S;Y190Q;T228S;T229Y
+     samples: 0.8819 0.8096 0.7753 0.7804 0.6527
+
+### literature  (pick 2 of 6 passing)
+  1. lit_hotspot_excluded_02    spread 0.0345  dock 5/5  median 0.9176  ipTM 0.9403   <-- shares positions with lit_d102w_pair_04
+     5 mut: T32Y;N55G;M107L;V164I;Y190Q
+     samples: 0.9259 0.9108 0.9214 0.8914 0.9176
+  2. lit_d102w_pair_04          spread 0.0535  dock 5/5  median 0.8812  ipTM 0.9137   <-- shares positions with lit_hotspot_excluded_01, lit_hotspot_excluded_02
+     6 mut: T32Y;T54G;N55G;D102W;V164I;Y190Q
+     samples: 0.8514 0.9001 0.8658 0.8812 0.9050
+  3. lit_d102w_pair_02          spread 0.0737  dock 5/5  median 0.9240  ipTM 0.9427   <-- shares positions with literature_02
+     5 mut: N55G;D102W;M107L;A169S;Y190Q
+     samples: 0.9240 0.8857 0.9357 0.8655 0.9392
+  4. lit_d102w_pair_03          spread 0.1727  dock 5/5  median 0.7751  ipTM 0.8755   <-- shares positions with lit_hotspot_excluded_01, literature_02
+     6 mut: T32Y;T54G;D102W;M107L;V168L;Y190Q
+     samples: 0.9232 0.7504 0.8967 0.7627 0.7751
+  5. literature_02              spread 0.1857  dock 5/5  median 0.8534  ipTM 0.8939   <-- shares positions with lit_d102w_pair_02, lit_d102w_pair_03
+     5 mut: N55G;D102W;M107L;V168L;Y190Q
+     samples: 0.9124 0.9143 0.8534 0.7286 0.7342
+  6. lit_hotspot_excluded_01    spread 0.2608  dock 5/5  median 0.8490  ipTM 0.9010   <-- shares positions with lit_d102w_pair_03, lit_d102w_pair_04
+     5 mut: T54G;D102S;M107L;V164I;Y190Q
+     samples: 0.9524 0.6916 0.8911 0.8490 0.8327
+
+### esm2_only  (pick 3 of 12 passing)
+  1. esm2_only_07               spread 0.0574  dock 5/5  median 0.9054  ipTM 0.9336
+     5 mut: G100S;Q162S;A186S;L213V;Q235S
+     samples: 0.9223 0.9175 0.8799 0.9054 0.8648
+  2. esm2_only_09               spread 0.0581  dock 5/5  median 0.8802  ipTM 0.9145   <-- shares positions with esm2_only_01
+     7 mut: Y52N;M139L;S149R;I156L;K177E;F218E;P230A
+     samples: 0.8993 0.8689 0.9123 0.8802 0.8542
+  3. esm2_only_11               spread 0.0617  dock 5/5  median 0.8698  ipTM 0.9186   <-- shares positions with esm2_only_03
+     9 mut: F27Y;S120G;Q138V;V150P;T155Q;A186S;S195A;Y227S;V239L
+     samples: 0.8935 0.9044 0.8427 0.8663 0.8698
+  4. esm2_only_12               spread 0.0621  dock 5/5  median 0.9106  ipTM 0.9349   <-- shares positions with esm2_only_04
+     9 mut: E1Q;D31S;V48M;T78M;T91S;R153T;Q225G;Q235S;E240T
+     samples: 0.9516 0.9106 0.9190 0.9103 0.8895
+  5. esm2_only_06               spread 0.0706  dock 5/5  median 0.8948  ipTM 0.9238
+     5 mut: D31S;F68A;S120G;M139L;P215A
+     samples: 0.9031 0.8901 0.8948 0.9047 0.8342
+  6. esm2_only_08               spread 0.0897  dock 5/5  median 0.9097  ipTM 0.9335
+     5 mut: F27Y;T91S;S144A;V150P;P230A
+     samples: 0.9325 0.9097 0.9111 0.8428 0.8988
+  7. esm2_only_01               spread 0.1015  dock 5/5  median 0.8865  ipTM 0.9188   <-- shares positions with esm2_only_09
+     5 mut: Y52N;S149R;I156L;K177E;F218E
+     samples: 0.9095 0.9331 0.8865 0.8494 0.8316
+  8. esm2_only_04               spread 0.1024  dock 5/5  median 0.8875  ipTM 0.9197   <-- shares positions with esm2_only_12
+     5 mut: E1Q;V48M;R153T;Q225G;E240T
+     samples: 0.9151 0.9096 0.8875 0.8796 0.8128
+  9. esm2_only_05               spread 0.1131  dock 5/5  median 0.8876  ipTM 0.9211
+     5 mut: G9P;T78M;S212N;T220D;T232Y
+     samples: 0.9323 0.8876 0.9208 0.8822 0.8192
+  10. esm2_only_10               spread 0.1160  dock 5/5  median 0.9057  ipTM 0.9304   <-- shares positions with esm2_only_02
+     8 mut: G9P;F68A;K76S;G100S;S119V;D136S;T157S;I241V
+     samples: 0.9099 0.8637 0.9057 0.9111 0.7951
+  11. esm2_only_02               spread 0.1256  dock 5/5  median 0.9014  ipTM 0.9307   <-- shares positions with esm2_only_10
+     5 mut: K76S;S119V;D136S;T157S;I241V
+     samples: 0.9113 0.9014 0.9285 0.8269 0.8029
+  12. esm2_only_03               spread 0.1518  dock 5/5  median 0.8726  ipTM 0.9131   <-- shares positions with esm2_only_11
+     5 mut: Q138V;T155Q;S195A;Y227S;V239L
+     samples: 0.9048 0.9198 0.8720 0.8726 0.7680

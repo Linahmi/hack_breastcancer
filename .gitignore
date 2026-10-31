@@ -11,3 +11,11 @@ __pycache__/
 **/predictions/
 data/1n8z.pdb
 data/her2_*.fasta
+
+# Aida — Boltz-2 cofold pipeline
+biomodals/
+outputs/
+out/
+*.npz
+.modal.toml
+.DS_Store

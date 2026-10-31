@@ -1,0 +1,43 @@
+ipSAE via src/hedi/ipsae.py  pae_cutoff=10.0 dist_cutoff=15.0
+
+=== per seed: ipSAE (d0res) ===
+run                       asym A->B  asym B->A      max     ipTM
+parent_wt_seed1              0.8022     0.9078   0.9078   0.9321
+parent_wt_seed2              0.8479     0.9218   0.9218   0.9412
+parent_wt_seed3              0.7398     0.8615   0.8615   0.9034
+
+reverse_vl_vh_seed1          0.7650     0.8842   0.8842   0.9191
+reverse_vl_vh_seed2          0.7046     0.8444   0.8444   0.8980
+reverse_vl_vh_seed3          0.8042     0.9023   0.9023   0.9283
+
+cdrh3_scrambled_seed1        0.7799     0.8773   0.8773   0.9158
+cdrh3_scrambled_seed2        0.6505     0.8002   0.8002   0.8810
+cdrh3_scrambled_seed3        0.4299     0.5416   0.5416   0.7921
+
+=== control summary: median across the 3 seeds ===
+control             ipSAE asym  ipSAE max     ipTM  seed-spd(ipSAE)  seed-spd(ipTM)
+parent_wt               0.8022     0.9078   0.9321           0.0603          0.0377
+reverse_vl_vh           0.7650     0.8842   0.9191           0.0579          0.0303
+cdrh3_scrambled         0.6505     0.8002   0.8810           0.3357          0.1238
+
+=== gaps vs noise floor ===
+ipSAE asym A->B   parent 0.8022  reverse 0.7650  scram 0.6505
+                  parent-reverse +0.0372   parent-scram +0.1517   parent seed-spread 0.1081
+                  reverse resolved? NO (gap/noise = 0.34x)
+                  scram resolved?   YES (gap/noise = 1.40x)
+
+ipSAE max         parent 0.9078  reverse 0.8842  scram 0.8002
+                  parent-reverse +0.0236   parent-scram +0.1076   parent seed-spread 0.0603
+                  reverse resolved? NO (gap/noise = 0.39x)
+                  scram resolved?   YES (gap/noise = 1.78x)
+
+ipTM              parent 0.9321  reverse 0.9191  scram 0.8810
+                  parent-reverse +0.0129   parent-scram +0.0511   parent seed-spread 0.0377
+                  reverse resolved? NO (gap/noise = 0.34x)
+                  scram resolved?   YES (gap/noise = 1.35x)
+
+=== threshold derivation (sample spread + worst sample) ===
+metric            good max spd  broken min spd  good worst  broken worst
+ipSAE max               0.1301          0.3481      0.7779        0.0000
+ipSAE asym              0.2298          0.4319      0.6198        0.0000
+ipTM                    0.0781          0.1389      0.8602        0.2405
