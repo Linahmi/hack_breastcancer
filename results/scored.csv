@@ -1,0 +1,10 @@
+run,verdict,reason,n_samples,docking_rate,max_sample_spread,min_sample,ipsae_median,iptm_median,ipsae_samples,iptm_samples,thresholds
+cdrh3_scrambled_seed1,REJECT,sample-spread 0.3481 > 0.2; min sample 0.5795 < 0.65,5,4/5,0.3481,0.5795,0.8773,0.9158,0.9276 0.8773 0.9272 0.7153 0.5795,0.9441 0.9158 0.9429 0.8509 0.8052,PROVISIONAL n=3; Hedi re-fits at 50 designs
+cdrh3_scrambled_seed2,REJECT,sample-spread 0.7886 > 0.2; min sample 0.0404 < 0.65,5,3/5,0.7886,0.0404,0.8002,0.881,0.8223 0.8002 0.8290 0.5440 0.0404,0.8871 0.8810 0.8876 0.7762 0.5757,PROVISIONAL n=3; Hedi re-fits at 50 designs
+cdrh3_scrambled_seed3,REJECT,sample-spread 0.8984 > 0.2; min sample 0.0000 < 0.65,5,2/5,0.8984,0.0,0.5416,0.7921,0.8984 0.5416 0.6764 0.0698 0.0000,0.9270 0.7921 0.8353 0.5524 0.2405,PROVISIONAL n=3; Hedi re-fits at 50 designs
+parent_wt_seed1,PASS,stable across all samples,5,5/5,0.029,0.8875,0.9078,0.9321,0.9102 0.9165 0.9078 0.8875 0.8885,0.9336 0.9378 0.9321 0.9235 0.9189,PROVISIONAL n=3; Hedi re-fits at 50 designs
+parent_wt_seed2,PASS,stable across all samples,5,5/5,0.1301,0.8127,0.9218,0.9412,0.9333 0.9428 0.9218 0.8127 0.9177,0.9486 0.9554 0.9412 0.8773 0.9383,PROVISIONAL n=3; Hedi re-fits at 50 designs
+parent_wt_seed3,PASS,stable across all samples,5,5/5,0.0782,0.8268,0.8615,0.9034,0.9050 0.8268 0.8794 0.8615 0.8513,0.9292 0.8905 0.9143 0.9034 0.8972,PROVISIONAL n=3; Hedi re-fits at 50 designs
+reverse_vl_vh_seed1,PASS,stable across all samples,5,5/5,0.1154,0.7901,0.8842,0.9191,0.8818 0.9055 0.8842 0.8975 0.7901,0.9145 0.9310 0.9191 0.9264 0.8658,PROVISIONAL n=3; Hedi re-fits at 50 designs
+reverse_vl_vh_seed2,PASS,stable across all samples,5,5/5,0.1206,0.7779,0.8444,0.898,0.8985 0.8807 0.8444 0.7779 0.8355,0.9269 0.9150 0.8980 0.8602 0.8943,PROVISIONAL n=3; Hedi re-fits at 50 designs
+reverse_vl_vh_seed3,PASS,stable across all samples,5,5/5,0.0608,0.8596,0.9023,0.9283,0.9156 0.8870 0.9023 0.9204 0.8596,0.9376 0.9210 0.9283 0.9404 0.9035,PROVISIONAL n=3; Hedi re-fits at 50 designs

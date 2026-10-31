@@ -77,3 +77,45 @@ coordinates as well as the PAE matrix.
 `outputs/parent_quick/` is a structural smoke test — empty MSA, 1 recycle,
 1 diffusion sample. **Not a baseline.** See its own `PROVENANCE.md`. The
 valid parent baseline is `parent_wt_seed{1,2,3}`.
+
+---
+
+## Stability filter — PROVISIONAL (fitted on n=3)
+
+Broken designs are **unstable, not low-scoring**. Each diffusion sample
+either docks (~0.87) or collapses (<0.3); the empirical band between
+~0.42 and ~0.75 is empty.
+
+Reject rule, applied **BEFORE** the median, on the 5 individual samples:
+
+- sample-spread > **0.20**
+- or any single sample < **0.65**
+
+```
+                     good (parent + reverse)    broken (scrambled)
+max sample-spread              0.1301                 0.3481
+worst single sample            0.7779                 0.0000
+```
+
+Applied to these controls: 6/9 PASS, 3/9 REJECT.
+
+**Never collapse a design to its median.** `cdrh3_scrambled_seed1` has
+median ipSAE 0.8773, inside the parent's own range (0.8615-0.9218), and a
+median-only filter passes it. Report all 5 samples, the docking rate, the
+max sample-spread, and the median as secondary only.
+
+**PROVISIONAL: n=3 control sequences. Hedi re-fits at 50 designs.**
+
+Scoring: `python3 src/aida/score_designs.py --all --csv results/scored.csv`
+
+### Unresolved: which CDR-H3 scramble is canonical
+
+The `cdrh3_scrambled_*` outputs here, and the thresholds above, use a
+13-residue permutation of positions **97-109**
+(`SRWGGDGFYAMDY` -> `RMADDWGFYGSYG`), from `src/hedi/inputs/`.
+
+An 11-residue permutation of **99-109**
+(`WGGDGFYAMDY` -> `GFDMAWYGYDG`) was also prepared and was pushed in
+commit dac6c33, then replaced in 5327aaa. Both preserve whole-sequence
+composition. If we revert to the 99-109 version these thresholds must be
+refitted.
