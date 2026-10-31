@@ -264,7 +264,8 @@ def run(
     print(f"chain A scFv from CSV | chain B HER2 domain IV 511-652 ({len(her2)} aa)")
     print(f"constraints per job: A:2 + B:{len(b_ss)} = {2+len(b_ss)} disulfides")
     print(f"params: {base} --seed <N>")
-    print(f"out contract: {out_root}/<run>/predictions/<run>/pae_<run>_model_0.npz")
+    print(f"out contract: {out_root}/<run>/boltz_results_<run>/predictions/<run>/"
+          f"pae_<run>_model_<0..{int(base.split('--diffusion_samples')[1].split()[0]) - 1 if '--diffusion_samples' in base else 0}>.npz")
     print(f"jobs: {len(plan)}  already done (resume): {len(done)}  to run: {len(todo)}")
     for p in done:
         print(f"   SKIP {p['run']} (pae npz present)")
