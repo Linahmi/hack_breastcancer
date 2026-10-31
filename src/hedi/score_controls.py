@@ -30,14 +30,18 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from ipsae import find_boltz_samples, read_boltz_sample, score_pairs  # noqa: E402
+from ipsae import (  # noqa: E402
+    DOCK_THRESHOLD,
+    MAX_SPREAD,
+    RunScore,
+    find_boltz_samples,
+    gate,
+    read_boltz_sample,
+    score_pairs,
+)
 
 OUT_CSV = REPO / "results" / "control_scores.csv"
 IPSAE_THRESHOLD = 0.3  # published discrimination threshold, for reference only
-# A sample either docks or collapses; the pooled 45-sample distribution has
-# an empirical gap between 0.42 and 0.75, so 0.5 sits inside it and the
-# split is insensitive to the exact value chosen.
-DOCK_THRESHOLD = 0.5
 
 
 def control_of(run: str) -> str:
@@ -207,6 +211,35 @@ def main(argv: list[str]) -> int:
         print("    Recommend gating on docking rate (and/or spread) BEFORE comparing")
         print("    medians, and raising this with the team: decisions.md currently")
         print("    commits to median aggregation alone.")
+
+    # ---- the gate, applied to each run ----
+    # If the gate is right, the six good control runs pass and the three
+    # scrambled ones fail. That is the only validation the thresholds have.
+    print("\n" + "=" * 72)
+    print(f"GATE (every sample docks at ipSAE >= {DOCK_THRESHOLD:g}, spread <= {MAX_SPREAD:g})")
+    print("Designs are gated on docking rate and spread, NOT on median ipSAE.\n")
+    expected_fail = {"cdrh3_scrambled"}
+    surprises = []
+    for d in run_dirs:
+        v = [r["ipsae"] for r in samples if r["run"] == d.name]
+        verdict = gate(
+            RunScore(
+                run=d.name, chain1="A", chain2="B",
+                pae_cutoff=pae_cutoff, dist_cutoff=dist_cutoff,
+                models=[r["model"] for r in samples if r["run"] == d.name],
+                values=v,
+            )
+        )
+        print(f"  {verdict}")
+        should_fail = control_of(d.name) in expected_fail
+        if verdict.passed == should_fail:
+            surprises.append(d.name)
+    if surprises:
+        print(f"\n  *** gate disagrees with the controls on: {', '.join(surprises)}")
+        print("      The thresholds are not calibrated. Do not use them on designs.")
+    else:
+        print(f"\n  gate agrees with all {len(run_dirs)} controls: the negative fails,")
+        print("  the positive and the topology probe pass.")
 
     rv = controls.get("reverse_vl_vh")
     if rv and pw:

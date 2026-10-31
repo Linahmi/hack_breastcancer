@@ -91,38 +91,67 @@ def _new_liabilities(seq: str) -> list[str]:
     return out
 
 
-def scramble_cdrh3() -> tuple[str, int, str]:
-    """Permute CDR-H3 deterministically. Returns (sequence, seed, permuted_cdr).
+# The CDR-H3 permutation AS ACTUALLY RUN, from the nine control cofolds
+# (outputs/<run>/run_meta.json on the aida branch, identical across seeds
+# 1-3). It permutes positions 99-109 only -- CDR-H3 minus its leading SR --
+# not the full 97-109 span this module originally generated.
+#
+# This is recorded, not regenerated. An earlier version of this file searched
+# seeds for its own permutation (97-109, SRWGGDGFYAMDY -> RMADDWGFYGSYG), and
+# that sequence was never folded. Keeping a generated sequence here while a
+# different one was scored is how a control silently stops describing the
+# experiment, so the as-run value is now the single source of truth and is
+# verified against the parent below.
+AS_RUN_SCRAMBLE_SPAN = (99, 109)          # 1-based, inclusive
+AS_RUN_SCRAMBLE_FROM = "WGGDGFYAMDY"
+AS_RUN_SCRAMBLE_TO = "GFDMAWYGYDG"
 
-    Composition is preserved exactly, so cysteine count, length and pI are
-    untouched and the only variable is CDR-H3 order. We search seeds for a
-    permutation that also differs from the parent in at least MIN_MUTATIONS
-    positions and introduces no new liability motif -- otherwise the control
-    would fail scripts/validate.py for a reason unrelated to its purpose.
+
+def scramble_cdrh3() -> tuple[str, str, str]:
+    """The as-run CDR-H3 scramble. Returns (sequence, before, after).
+
+    Verified rather than trusted: the span must hold the expected parent
+    residues, the permutation must preserve composition exactly (so cysteine
+    count, length and pI are untouched and CDR-H3 order is the only
+    variable), it must differ in at least MIN_MUTATIONS positions, and it
+    must introduce no new liability motif.
     """
-    import random
+    start, end = AS_RUN_SCRAMBLE_SPAN
+    found = PARENT[start - 1:end]
+    if found != AS_RUN_SCRAMBLE_FROM:
+        raise ValueError(
+            f"parent {start}-{end} is {found!r}, expected {AS_RUN_SCRAMBLE_FROM!r}; "
+            "the as-run span does not match this parent"
+        )
+    if sorted(AS_RUN_SCRAMBLE_TO) != sorted(AS_RUN_SCRAMBLE_FROM):
+        raise ValueError("as-run scramble does not preserve composition")
 
-    start, end, cdr = find_cdrh3()
-    for seed in range(10_000):
-        rng = random.Random(seed)
-        chars = list(cdr)
-        rng.shuffle(chars)
-        permuted = "".join(chars)
-        if _hamming(permuted, cdr) < MIN_MUTATIONS:
-            continue
-        seq = PARENT[:start - 1] + permuted + PARENT[end:]
-        assert len(seq) == len(PARENT), "scramble changed the length"
-        assert sorted(seq) == sorted(PARENT), "scramble changed the composition"
-        if _new_liabilities(seq):
-            continue
-        return seq, seed, permuted
-    raise RuntimeError("no acceptable CDR-H3 permutation found in 10000 seeds")
+    # The scrambled span must sit inside CDR-H3, or it is not a CDR-H3 control.
+    h3_start, h3_end, _ = find_cdrh3()
+    if not (h3_start <= start and end <= h3_end):
+        raise ValueError(
+            f"scramble span {start}-{end} is not inside CDR-H3 {h3_start}-{h3_end}"
+        )
+
+    seq = PARENT[:start - 1] + AS_RUN_SCRAMBLE_TO + PARENT[end:]
+    if len(seq) != len(PARENT):
+        raise ValueError("scramble changed the length")
+    if sorted(seq) != sorted(PARENT):
+        raise ValueError("scramble changed the composition")
+    n = _hamming(seq, PARENT)
+    if n < MIN_MUTATIONS:
+        raise ValueError(f"as-run scramble differs in only {n} positions")
+    bad = _new_liabilities(seq)
+    if bad:
+        raise ValueError(f"as-run scramble introduces liabilities: {bad}")
+    return seq, AS_RUN_SCRAMBLE_FROM, AS_RUN_SCRAMBLE_TO
 
 
 def build() -> list[dict]:
     seg = segments()
     start, end, cdr = find_cdrh3()
-    scrambled, seed, permuted = scramble_cdrh3()
+    scrambled, before, after = scramble_cdrh3()
+    s_start, s_end = AS_RUN_SCRAMBLE_SPAN
 
     rows = [
         {
@@ -141,7 +170,10 @@ def build() -> list[dict]:
             "name": "cdrh3_scrambled",
             "sequence": scrambled,
             "role": "negative",
-            "note": f"CDR-H3 {start}-{end} {cdr}->{permuted} (seed {seed}); composition identical",
+            "note": (
+                f"as run: {s_start}-{s_end} {before}->{after}, inside CDR-H3 "
+                f"{start}-{end}; composition identical"
+            ),
         },
     ]
     for r in rows:

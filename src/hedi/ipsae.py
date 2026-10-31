@@ -979,6 +979,122 @@ class RunScore:
             f"m{m}={v:.4f}" for m, v in zip(self.models, self.values)
         )
 
+    @property
+    def n_docked(self) -> int:
+        return sum(1 for v in self.values if v >= DOCK_THRESHOLD)
+
+    @property
+    def dock_rate(self) -> float:
+        return self.n_docked / len(self.values) if self.values else 0.0
+
+    @property
+    def median_docked(self) -> float:
+        """Median over the docked samples only.
+
+        Under bimodality this is the magnitude of the docked mode, which is
+        what the plain median fails to report when the collapsed mode wins
+        the draws.
+        """
+        hi = [v for v in self.values if v >= DOCK_THRESHOLD]
+        return float(np.median(hi)) if hi else 0.0
+
+
+# --------------------------------------------------------------------------
+# The gate.
+#
+# Calibrated on the nine control runs (3 controls x 3 seeds x 5 samples):
+#
+#   parent_wt        5/5 docked every seed, within-seed spread 0.029-0.130
+#   reverse_vl_vh    5/5 docked every seed, within-seed spread 0.061-0.121
+#   cdrh3_scrambled  4/5, 2/5, 1/5 docked, within-seed spread 0.832-0.847
+#
+# ipSAE MAGNITUDE does not separate these: when the scramble docks it scores
+# 0.873 against the parent's 0.905. What separates them is whether every
+# sample docks, and how far apart the samples are. Both gates below reject
+# all three scrambled seeds and accept all six good ones.
+#
+# DOCK_THRESHOLD sits inside an empirical gap (no sample anywhere in the 45
+# landed between 0.417 and 0.752), so the split is insensitive to its exact
+# value. MAX_SPREAD sits in a gap of its own, 0.130 to 0.832.
+#
+# These come from n=3 per control. They are provisional: a design is not a
+# control, and nothing here establishes the parent's true collapse rate
+# beyond "0 out of 15". Revisit if designs cluster near either boundary.
+# --------------------------------------------------------------------------
+
+DOCK_THRESHOLD = 0.5    # a sample has docked if its ipSAE is at least this
+MAX_SPREAD = 0.30       # reject a run whose samples disagree by more
+MIN_DOCK_RATE = 1.0     # every sample must dock
+
+
+@dataclass
+class Verdict:
+    """Pass/fail for one run, with the reasons spelled out."""
+
+    run: str
+    passed: bool
+    reasons: list[str]
+    n: int
+    n_docked: int
+    dock_rate: float
+    spread: float
+    median: float
+    median_docked: float
+
+    def __str__(self) -> str:
+        head = "PASS" if self.passed else "FAIL"
+        why = "; ".join(self.reasons) if self.reasons else "all gates passed"
+        return (
+            f"{head} {self.run}: docked {self.n_docked}/{self.n}, "
+            f"spread {self.spread:.4f}, median {self.median:.4f} "
+            f"(docked {self.median_docked:.4f}) -- {why}"
+        )
+
+
+def gate(
+    run: RunScore,
+    *,
+    dock_threshold: float = DOCK_THRESHOLD,
+    max_spread: float = MAX_SPREAD,
+    min_dock_rate: float = MIN_DOCK_RATE,
+) -> Verdict:
+    """Gate a run on docking rate and spread, NOT on median ipSAE.
+
+    A design that passes is one whose every diffusion sample found the
+    interface and agreed about it. Only then is its median worth comparing
+    against another design's -- and even then a small difference between two
+    passing designs is not evidence of better affinity.
+    """
+    if not run.values:
+        raise ValueError(f"{run.run}: no samples to gate")
+
+    reasons: list[str] = []
+    n_docked = sum(1 for v in run.values if v >= dock_threshold)
+    rate = n_docked / len(run.values)
+    if rate < min_dock_rate:
+        collapsed = [f"{v:.4f}" for v in run.values if v < dock_threshold]
+        reasons.append(
+            f"only {n_docked}/{len(run.values)} samples docked "
+            f"(ipSAE >= {dock_threshold:g}); collapsed: {', '.join(collapsed)}"
+        )
+    if run.spread > max_spread:
+        reasons.append(
+            f"samples disagree: spread {run.spread:.4f} > {max_spread:g} "
+            f"(range {run.minimum:.4f}-{run.maximum:.4f})"
+        )
+
+    return Verdict(
+        run=run.run,
+        passed=not reasons,
+        reasons=reasons,
+        n=len(run.values),
+        n_docked=n_docked,
+        dock_rate=rate,
+        spread=run.spread,
+        median=run.median,
+        median_docked=run.median_docked,
+    )
+
 
 def score_boltz_run(
     out_dir: str | Path,
