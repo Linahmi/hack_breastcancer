@@ -6,6 +6,8 @@ __pycache__/
 *.pt
 *.ckpt
 *.safetensors
-boltz_results/
+# Boltz 2.2.1 writes <out_dir>/predictions/<stem>/ .
+# boltz_results_*/ was the Boltz-1 layout and is not produced any more.
+**/predictions/
 data/1n8z.pdb
 data/her2_*.fasta

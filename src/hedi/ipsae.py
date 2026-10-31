@@ -454,6 +454,416 @@ def read_af2(pae_path: str | Path, pdb_path: str | Path) -> Model:
 
 
 # --------------------------------------------------------------------------
+# Boltz 2.2.1 reader.
+#
+# Layout: Boltz 2.2.1 writes <out_dir>/predictions/<stem>/ . The older
+# boltz_results_<stem>/ layout is Boltz-1 and is NOT what we get.
+#
+# Sibling files are located by globbing inside the prediction directory, not
+# by string-substituting the PAE filename. The reference does the latter
+# (pae -> plddt, pae -> confidence), which rewrites the FIRST occurrence of
+# "pae" anywhere in the path -- including in a parent directory name -- and so
+# silently resolves to a file that does not exist, or worse, the wrong one.
+# --------------------------------------------------------------------------
+
+BOLTZ_PAE_GLOB = "predictions/*/pae_*_model_{model}.npz"
+PARENT_SCFV_LEN = 242  # the 242 aa trastuzumab scFv parent
+
+AA3TO1 = {
+    "ALA": "A", "ARG": "R", "ASN": "N", "ASP": "D", "CYS": "C", "GLN": "Q",
+    "GLU": "E", "GLY": "G", "HIS": "H", "ILE": "I", "LEU": "L", "LYS": "K",
+    "MET": "M", "PHE": "F", "PRO": "P", "SER": "S", "THR": "T", "TRP": "W",
+    "TYR": "Y", "VAL": "V",
+}
+
+
+@dataclass
+class BoltzOutputs:
+    """Resolved paths for one Boltz prediction. All paths exist except the
+    optional siblings, which are None when absent."""
+
+    out_dir: Path
+    pred_dir: Path
+    stem: str
+    pae_npz: Path
+    structure: Path
+    plddt_npz: Path | None = None
+    confidence_json: Path | None = None
+
+
+def _one_match(matches: list[Path], what: str, pattern: str, where: Path) -> Path:
+    """Exactly one, or a loud failure naming what was actually there."""
+    if len(matches) == 1:
+        return matches[0]
+    if not matches:
+        siblings = sorted(p.name for p in where.rglob("*") if p.is_file())[:25]
+        raise FileNotFoundError(
+            f"no {what} matching {pattern!r} under {where}. "
+            f"Files present: {siblings or '(none)'}. "
+            "If this is a boltz_results_*/ tree it is the Boltz-1 layout; "
+            "Boltz 2.2.1 writes <out_dir>/predictions/<stem>/."
+        )
+    raise ValueError(
+        f"{len(matches)} files match {what} pattern {pattern!r} under {where}, "
+        f"expected exactly 1: {[str(p) for p in matches]}. "
+        "Point out_dir at a single prediction, or pass model= to disambiguate."
+    )
+
+
+def find_boltz_outputs(out_dir: str | Path, model: int = 0) -> BoltzOutputs:
+    """Resolve one Boltz 2.2.1 prediction's files, asserting a unique match."""
+    out_dir = Path(out_dir)
+    if not out_dir.is_dir():
+        raise NotADirectoryError(f"out_dir {out_dir} is not a directory")
+
+    pattern = BOLTZ_PAE_GLOB.format(model=model)
+    pae_npz = _one_match(sorted(out_dir.glob(pattern)), "PAE npz", pattern, out_dir)
+    pred_dir = pae_npz.parent
+    stem = pred_dir.name
+
+    # Siblings live beside the PAE file; glob them, never string-substitute.
+    struct = sorted(pred_dir.glob(f"*_model_{model}.cif")) or sorted(
+        pred_dir.glob(f"*_model_{model}.pdb")
+    )
+    structure = _one_match(
+        struct, "structure", f"*_model_{model}.[cif|pdb]", pred_dir
+    )
+
+    def _optional(pat: str) -> Path | None:
+        hits = sorted(pred_dir.glob(pat))
+        return hits[0] if len(hits) == 1 else None
+
+    return BoltzOutputs(
+        out_dir=out_dir,
+        pred_dir=pred_dir,
+        stem=stem,
+        pae_npz=pae_npz,
+        structure=structure,
+        plddt_npz=_optional(f"plddt_*_model_{model}.npz"),
+        confidence_json=_optional(f"confidence_*_model_{model}.json"),
+    )
+
+
+def describe_boltz_npz(path: str | Path) -> str:
+    """Report an npz's keys, shapes and dtypes.
+
+    Run this first when the real output lands -- its output is exactly what
+    `_boltz_arrays` below needs to be filled in with.
+
+        python -c "import sys; sys.path.insert(0,'src/hedi'); \
+import ipsae; print(ipsae.describe_boltz_npz(sys.argv[1]))" <file.npz>
+    """
+    with np.load(path, allow_pickle=False) as z:
+        lines = [f"{path}:"]
+        for k in z.files:
+            a = z[k]
+            lines.append(f"  {k!r}: shape={a.shape} dtype={a.dtype}")
+        if not z.files:
+            lines.append("  (no arrays)")
+    return "\n".join(lines)
+
+
+@dataclass
+class BoltzArrays:
+    """Raw arrays pulled out of Boltz's npz files, before any masking."""
+
+    pae: np.ndarray
+    plddt: np.ndarray | None
+
+
+def _boltz_arrays(paths: BoltzOutputs) -> BoltzArrays:
+    """THE ONLY place Boltz array keys are read. Deliberately unimplemented.
+
+    TODO(hedi): fill in once a real Boltz 2.2.1 output is in hand. Everything
+    else in the Boltz path -- file resolution, mmCIF parsing, chain checks,
+    the PAE guards -- is written and testable; only the key names are unknown,
+    and guessing them is how you get a number that is confidently wrong
+    rather than an error.
+
+    To fill this in:
+      1. `print(describe_boltz_npz(paths.pae_npz))` and the same for
+         paths.plddt_npz, and read off the real key names and shapes.
+      2. Set `pae` from the (n_token, n_token) array and `plddt` from the
+         per-token vector (scale by 100 if its max is <= 1.0 -- Boltz has
+         shipped both conventions).
+      3. Decide whether the PAE is over TOKENS or over RESIDUES. For a
+         protein-only complex with no ligands or modified residues these
+         coincide, and `read_boltz`'s shape guard will confirm it. If they
+         do not coincide, a token mask selecting CA rows/columns is needed
+         here -- see the reference's token_array handling.
+
+    The reference (ipsae.py v4) used 'pae' in the PAE npz and 'plddt' in the
+    plddt npz for Boltz-1/2, but that is a Boltz-1-era observation about a
+    different output layout, so it is a starting hypothesis to CHECK against
+    step 1, not a value to hard-code here.
+    """
+    raise NotImplementedError(
+        "Boltz array keys are not known yet -- see the TODO in _boltz_arrays. "
+        f"Run describe_boltz_npz({str(paths.pae_npz)!r}) to list the real "
+        "keys, then fill in this one function. Nothing else needs to change."
+    )
+
+
+def _cif_tokens(line: str) -> list[str]:
+    """Split an mmCIF data line, honouring single/double quoted values.
+
+    Atom names like C1' and O5' are quoted in mmCIF, so a plain .split()
+    would mangle them.
+    """
+    out, cur, quote = [], "", None
+    for ch in line:
+        if quote:
+            if ch == quote:
+                quote = None
+            else:
+                cur += ch
+        elif ch in "'\"":
+            quote = ch
+        elif ch.isspace():
+            if cur:
+                out.append(cur)
+                cur = ""
+        else:
+            cur += ch
+    if cur:
+        out.append(cur)
+    return out
+
+
+def read_cif_atoms(path: str | Path) -> list[dict]:
+    """Parse the _atom_site loop of an mmCIF file.
+
+    mmCIF declares its own column names in the loop_ header, so this reads
+    them by name rather than by position -- no column-order assumptions, and
+    nothing here depends on Boltz's particular field ordering.
+    """
+    if str(path).endswith(".pdb"):
+        raise ValueError("read_cif_atoms called on a .pdb file; use read_pdb")
+    text = Path(path).read_text()
+
+    fields: list[str] = []
+    atoms: list[dict] = []
+    in_loop = False
+
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line.startswith("_atom_site."):
+            fields.append(line.split(".", 1)[1].split()[0])
+            in_loop = True
+            continue
+        if in_loop and (line.startswith("ATOM") or line.startswith("HETATM")):
+            parts = _cif_tokens(line)
+            if len(parts) < len(fields):
+                continue
+            row = dict(zip(fields, parts))
+
+            def pick(*names: str) -> str | None:
+                for n in names:
+                    v = row.get(n)
+                    if v is not None and v not in (".", "?"):
+                        return v
+                return None
+
+            resname = pick("label_comp_id", "auth_comp_id")
+            if resname is None or resname == "LIG":
+                continue
+            chain = pick("auth_asym_id", "label_asym_id")
+            resnum = pick("auth_seq_id", "label_seq_id")
+            if chain is None or resnum is None:
+                continue
+            atoms.append(
+                {
+                    "atom_name": pick("label_atom_id", "auth_atom_id") or "",
+                    "resname": resname,
+                    "chain": chain,
+                    "resnum": int(resnum),
+                    "xyz": (
+                        float(row["Cartn_x"]),
+                        float(row["Cartn_y"]),
+                        float(row["Cartn_z"]),
+                    ),
+                }
+            )
+        elif in_loop and line and not line.startswith(("#", "ATOM", "HETATM")):
+            if atoms:  # loop finished
+                break
+
+    if not atoms:
+        raise ValueError(f"{Path(path).name}: no _atom_site ATOM/HETATM rows parsed")
+    return atoms
+
+
+def _ca_cb(atoms: list[dict], source: str) -> tuple[list[dict], list[dict]]:
+    """Split an atom list into the parallel CA and CB lists, and check them."""
+    ca, cb = [], []
+    for atom in atoms:
+        name, resname = atom["atom_name"], atom["resname"]
+        if name == "CA" or "C1" in name:
+            ca.append(atom)
+        if name == "CB" or "C3" in name or (resname == "GLY" and name == "CA"):
+            cb.append(atom)
+    if len(ca) != len(cb):
+        raise ValueError(
+            f"{source}: {len(ca)} CA atoms but {len(cb)} CB atoms. These are "
+            "indexed in parallel, so distances would be misaligned."
+        )
+    for i, (a, b) in enumerate(zip(ca, cb)):
+        if a["chain"] != b["chain"] or a["resnum"] != b["resnum"]:
+            raise ValueError(
+                f"{source}: CA/CB lists diverge at index {i} "
+                f"({a['chain']}{a['resnum']} vs {b['chain']}{b['resnum']})"
+            )
+    if not ca:
+        raise ValueError(f"{source}: no CA atoms found")
+    return ca, cb
+
+
+def chain_sequence(model: Model, chain: str) -> str:
+    """One-letter sequence of one chain, in structure order. X for unknown."""
+    return "".join(
+        AA3TO1.get(model.resnames[i], "X")
+        for i in range(model.numres)
+        if model.chains[i] == chain
+    )
+
+
+def assert_chain_layout(
+    model: Model,
+    scfv_chain: str = "A",
+    target_chain: str = "B",
+    scfv_len: int | None = PARENT_SCFV_LEN,
+) -> None:
+    """Check chain A is the scFv and chain B the target, from the STRUCTURE.
+
+    Chain identity is derived from the chain definitions in the output, never
+    from confidence_*.json: `pair_chains_iptm` there is keyed by stringified
+    integers whose mapping onto the YAML chain IDs is undocumented, so using
+    it to decide which chain is the binder is a silent-wrong-answer risk.
+
+    The scFv is identified positively by its (GGGGS)x3 linker, which is the
+    one feature of our construct that cannot be coincidental. Length is
+    checked too, but a design is allowed to differ from the parent's 242 --
+    pass scfv_len=None to skip that, and scripts/validate.py is what actually
+    enforces sequence rules.
+    """
+    present = model.unique_chains
+    missing = [c for c in (scfv_chain, target_chain) if c not in present]
+    if missing:
+        raise ValueError(
+            f"expected chains {scfv_chain} (scFv) and {target_chain} (target), "
+            f"missing {missing}; structure has {present}"
+        )
+    if len(present) > 2:
+        raise ValueError(
+            f"expected exactly 2 chains, found {present}. Trim the target to "
+            "HER2 domain IV and cofold a single scFv against it."
+        )
+
+    seq = chain_sequence(model, scfv_chain)
+    linker = "GGGGS" * 3
+    if linker not in seq:
+        other = chain_sequence(model, target_chain)
+        hint = (
+            f" Chain {target_chain} DOES contain it -- the chains look swapped."
+            if linker in other
+            else ""
+        )
+        raise ValueError(
+            f"chain {scfv_chain} has no (GGGGS)x3 linker, so it is not the "
+            f"scFv (length {len(seq)}).{hint}"
+        )
+    if scfv_len is not None and len(seq) != scfv_len:
+        raise ValueError(
+            f"chain {scfv_chain} is {len(seq)} aa, expected {scfv_len}. "
+            "Pass scfv_len=None if this design is deliberately a different "
+            "length, then check it with scripts/validate.py."
+        )
+    if not chain_sequence(model, target_chain):
+        raise ValueError(f"chain {target_chain} (target) has no residues")
+
+
+def read_boltz(
+    out_dir: str | Path,
+    model: int = 0,
+    *,
+    scfv_chain: str = "A",
+    target_chain: str = "B",
+    scfv_len: int | None = PARENT_SCFV_LEN,
+    check_chains: bool = True,
+) -> Model:
+    """Read one Boltz 2.2.1 prediction into a Model.
+
+    Raises NotImplementedError until `_boltz_arrays` is filled in; every other
+    step here runs and is worth exercising against a real output directory.
+    """
+    paths = find_boltz_outputs(out_dir, model=model)
+
+    if str(paths.structure).endswith(".cif"):
+        atoms = read_cif_atoms(paths.structure)
+    else:
+        parsed = read_pdb(paths.structure)
+        atoms = None
+        ca, cb = parsed["ca"], parsed["cb"]
+    if atoms is not None:
+        ca, cb = _ca_cb(atoms, Path(paths.structure).name)
+    n = len(ca)
+
+    arrays = _boltz_arrays(paths)
+
+    # --- PAE must exist. A Boltz run without --write_full_pae produces the
+    # other confidence files but no PAE matrix, and ipSAE is undefined without
+    # it. This must never degrade to a default or a zero matrix. ---
+    if arrays.pae is None or getattr(arrays.pae, "size", 0) == 0:
+        raise ValueError(
+            f"{paths.pae_npz} contains no PAE matrix. ipSAE cannot be computed "
+            "without one. This is the --write_full_pae failure mode: re-run "
+            "Boltz with --write_full_pae."
+        )
+    pae = np.asarray(arrays.pae, dtype=float)
+    if pae.ndim != 2 or pae.shape[0] != pae.shape[1]:
+        raise ValueError(f"PAE from {paths.pae_npz} has shape {pae.shape}, expected square 2-D")
+    if pae.shape != (n, n):
+        raise ValueError(
+            f"PAE is {pae.shape} but the structure has {n} residues. The PAE is "
+            "probably over TOKENS rather than residues, which needs a token "
+            "mask selecting CA rows/columns -- see the TODO in _boltz_arrays."
+        )
+
+    if arrays.plddt is None:
+        plddt = np.zeros(n)
+    else:
+        plddt = np.asarray(arrays.plddt, dtype=float)
+        if len(plddt) != n:
+            raise ValueError(
+                f"plddt has {len(plddt)} entries but the structure has {n} residues"
+            )
+        if plddt.size and plddt.max() <= 1.0:
+            plddt = plddt * 100.0  # Boltz has shipped both 0-1 and 0-100
+
+    coords = np.array([a["xyz"] for a in cb], dtype=float)
+    distances = np.linalg.norm(coords[:, None, :] - coords[None, :, :], axis=-1)
+
+    m = Model(
+        pae=pae,
+        chains=np.array([a["chain"] for a in ca]),
+        resnums=np.array([a["resnum"] for a in ca]),
+        resnames=[a["resname"] for a in ca],
+        plddt=plddt,
+        distances=distances,
+        # iptm_af is deliberately left at -1.0: it would come from
+        # confidence_*.json's pair_chains_iptm, whose integer-keyed chain
+        # mapping is undocumented. ipSAE does not need it.
+        name=paths.stem,
+    )
+    m.validate()
+    if check_chains:
+        assert_chain_layout(
+            m, scfv_chain=scfv_chain, target_chain=target_chain, scfv_len=scfv_len
+        )
+    return m
+
+
+# --------------------------------------------------------------------------
 # CLI
 # --------------------------------------------------------------------------
 
