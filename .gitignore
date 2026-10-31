@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+.ipynb_checkpoints/
+*.pt
+*.ckpt
+*.safetensors
+boltz_results/
+data/1n8z.pdb
+data/her2_*.fasta
