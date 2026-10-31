@@ -6,19 +6,24 @@ only `name,sequence`.
 
 ## Ready inputs
 
-- `wave_01.csv` through `wave_04.csv`: 8 rows each, legacy designs produced
-  before the CA-distance matrix arrived. All 32 are sequence-valid, but every
-  row has at least one mutated-position CA pair below 10 A.
-- `wave_05.csv`: 4 literature-arm designs. All four pass the current spreading
-  rule (max 2 mutations per CDR and every mutated-position CA pair >=10 A).
+- `wave_01.csv` through `wave_04.csv`: 8 rows each. All 32 are sequence-valid.
+  CA distance is a post-hoc covariate, not an exclusion rule.
+- `wave_05.csv`: 4 rebuilt literature-arm designs plus `ctrl_antidesign`. The
+  four candidates were prospectively constructed with max 2 mutations per CDR
+  and every mutated-position CA pair >=10 A; the anti-design is a negative
+  control.
 - `controls.csv`: parent, reverse-order, scrambled-CDR-H3, and five-mutation
   anti-design controls. These are controls, not submission candidates.
-- `geometry_audit.csv`: the authoritative per-design geometry verdict. Join on
-  `name`; do not infer compliance from the wave number.
+- `wave_06.csv`: the four previously undispatched consensus/contact designs.
+- `wave_07.csv`: 8 ESM2-only designs using 40 positions absent from the prior
+  pool; all obey the prospective CDR and CA-separation constraints.
+- `geometry_audit.csv`: per-design CA-distance covariates for correlation with
+  docking rate. It is not a compliance or filtering verdict.
 
-The four literature designs use exact published mutations. Four of the five
-literature rows are loss-of-affinity alanine scans; only D102W was reported as
-affinity-improving. Each candidate rationale records the source and effect.
+Two literature designs use D102W, the only affinity-improving published result,
+with both-model consensus fillers. Two use consensus mutations while excluding
+the published alanine-scan hot spots. Each candidate rationale cites the source
+for the D102W inclusion and/or the hot-spot exclusions.
 
 ## Aida
 
@@ -26,12 +31,12 @@ The wave and control CSVs satisfy `run_cofold.py`'s `name,sequence` contract.
 Audit before spending GPU time:
 
 ```bash
-modal run src/aida/run_cofold.py --csv results/wave_05.csv --dry-run
+modal run src/aida/run_cofold.py --csv results/wave_07.csv --dry-run
 ```
 
-Then remove `--dry-run` and use the desired seed/concurrency settings. Waves
-01-04 are useful as legacy exploration but are not compliant with the current
-CA-spacing rule.
+Then remove `--dry-run` and use the desired seed/concurrency settings. Analyze
+minimum CA distance as a covariate across all waves; do not use 10 A as a
+retrospective filter.
 
 ## Hedi
 

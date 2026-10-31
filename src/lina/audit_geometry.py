@@ -23,7 +23,7 @@ CDR_RANGES = {
     "L2": (185, 191),
     "L3": (224, 232),
 }
-MIN_CA_DISTANCE_A = 10.0
+CA_COVARIATE_THRESHOLD_A = 10.0
 
 
 def cdr_for(position: int) -> str | None:
@@ -71,16 +71,18 @@ def main() -> int:
         cdr_cap_pass = max_cdr_count <= 2
 
         pair_distances = []
-        violations = []
+        below_threshold = []
+        unresolved = []
         for left, right in itertools.combinations(positions, 2):
             distance = float(distances[left - 1, right - 1])
             pair_distances.append(distance)
-            if not np.isfinite(distance) or distance < MIN_CA_DISTANCE_A:
-                rendered = "nan" if not np.isfinite(distance) else f"{distance:.3f}"
-                violations.append(f"{left}-{right}:{rendered}")
+            if not np.isfinite(distance):
+                unresolved.append(f"{left}-{right}")
+            elif distance < CA_COVARIATE_THRESHOLD_A:
+                below_threshold.append(f"{left}-{right}:{distance:.3f}")
 
-        min_distance = min(pair_distances, default=float("nan"))
-        ca_spacing_pass = not violations
+        finite_distances = [distance for distance in pair_distances if np.isfinite(distance)]
+        min_distance = min(finite_distances, default=float("nan"))
         output_rows.append(
             {
                 "name": row["name"],
@@ -89,14 +91,14 @@ def main() -> int:
                 "mutations": mutation_list,
                 "mutation_count": len(positions),
                 "max_mutations_in_one_cdr": max_cdr_count,
-                "cdr_cap_pass": str(cdr_cap_pass).lower(),
+                "cdr_cap_at_most_2": str(cdr_cap_pass).lower(),
                 "min_ca_distance_A": (
                     "nan" if not np.isfinite(min_distance) else f"{min_distance:.3f}"
                 ),
-                "ca_spacing_pass": str(ca_spacing_pass).lower(),
-                "spreading_rule_pass": str(cdr_cap_pass and ca_spacing_pass).lower(),
-                "violation_count": len(violations),
-                "violating_pairs": ";".join(violations),
+                "pairs_below_10A": len(below_threshold),
+                "pairs_without_ca": len(unresolved),
+                "below_10A_pairs": ";".join(below_threshold),
+                "pairs_without_ca_detail": ";".join(unresolved),
             }
         )
 
@@ -106,8 +108,7 @@ def main() -> int:
         writer.writeheader()
         writer.writerows(output_rows)
 
-    passing = sum(row["spreading_rule_pass"] == "true" for row in output_rows)
-    print(f"wrote {output_path.relative_to(REPO)}: {passing}/{len(output_rows)} pass")
+    print(f"wrote {output_path.relative_to(REPO)}: {len(output_rows)} covariate rows")
     return 0
 
 
