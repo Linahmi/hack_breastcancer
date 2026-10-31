@@ -6,7 +6,8 @@ hide atoms
 surface /C
 color /C #9db8da target s
 transparency /C 25 target s
-select /A:28,30,31,32,50,53,66,91,92,93,94 /B:33,50,52,57,58,59,99,103,104,105
+# chain A residue 66 = parent 201: dropped, it was a water-mediated contact only
+select /A:28,30,31,32,50,53,91,92,93,94 /B:33,50,52,57,58,59,99,103,104,105
 color sel red
 show sel atoms
 style sel stick

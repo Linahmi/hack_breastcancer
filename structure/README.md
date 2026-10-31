@@ -11,7 +11,7 @@ source of truth), never PDB numbering.
 
 | File | What it is |
 |---|---|
-| `red_green.csv` | 61 rows: RED (contact, conserve) + 40 GREEN (Kabat CDR, mutable), `position,aa,class,min_dist_A`. See the water caveat below. |
+| `red_green.csv` | 60 rows: 20 RED (contact, conserve) + 40 GREEN (Kabat CDR, mutable), `position,aa,class,min_dist_A`. |
 | `contacts.py` | Produces `red_green.csv` from the structure. numpy only. |
 | `ca_distances.npy` | 242×242 CA–CA distance matrix in Å, indexed by parent position − 1. |
 | `ca_distances.py` | Produces `ca_distances.npy`. |
@@ -62,29 +62,32 @@ L2 185–191, L3 224–232.
 GREEN contains **no cysteines** (22, 96, 158, 223) and **no linker positions**,
 asserted in code, so it can be fed to a PLM scan as-is.
 
-### Water caveat — read this before quoting the RED count
+### Water correction — what changed and why
 
-The committed `red_green.csv` lists **21 RED**. That run counted
+The **first** committed `red_green.csv` listed 21 RED. That run counted
 crystallographic waters of chain C as HER2 atoms. Waters in a 2.52 Å structure
 are solvent, not epitope, and including them inflates the paratope:
 
-| Position | In the CSV | Nearest HER2 **protein** atom | What was at 3–4 Å |
+| Position | First CSV | Nearest HER2 **protein** atom | What was at 3–4 Å |
 |---|---|---|---|
 | 58 T | 3.96 | 4.11 (Glu558 OE2) | HOH 1016 |
 | 163 D | 2.47 | 4.50 (Glu598 OE1) | HOH 1045 |
 | **201 R** | **3.52** | **5.45** (Glu598 OE1) | HOH 1026 |
 
-**Position 201 has no HER2 protein contact under 4.5 Å at all** — it was RED
-because of one water molecule. It is also the only framework position in the
-RED list, which was the visible tell. Excluding waters gives **20 RED**.
+**Position 201 had no HER2 protein contact under 4.5 Å at all** — it was RED
+because of one water molecule. It was also the only framework position in the
+RED list, which was the visible tell.
 
-**GREEN is unchanged (40) either way**, because 201 is framework and never was
-a GREEN candidate. The design whitelist is unaffected; only the RED count and
-three distances change.
+The CSV in this directory is the **corrected, water-free** version: **20 RED**.
+58 and 163 stay RED at their true protein distances; 201 is dropped. The
+ChimeraX script and the per-CDR report were updated to match.
+
+**GREEN is unchanged (40)**, because 201 is framework and never was a GREEN
+candidate — the design whitelist was never affected by this.
 
 `contacts.py` defaults to excluding waters. `--include-waters` reproduces the
-committed CSV exactly, so the discrepancy is auditable rather than asserted.
-The CSV has not been overwritten — that is a team call, not a silent edit.
+original 21-RED CSV exactly, so the correction is auditable rather than
+asserted. Commit `f01f504` holds the pre-correction file.
 
 ### Cutoff robustness
 
