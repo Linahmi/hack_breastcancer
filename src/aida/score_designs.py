@@ -85,17 +85,22 @@ IPSAE_SOURCE = _resolve_ipsae()
 PAE_CUTOFF = 10.0
 DIST_CUTOFF = 15.0
 
-# --- PROVISIONAL stability thresholds, fitted on n=3 controls ---
-MAX_SAMPLE_SPREAD = 0.20   # good controls <= 0.1301, broken >= 0.3481
-MIN_SINGLE_SAMPLE = 0.65   # good controls >= 0.7779, broken floor 0.0000
-# Bimodality: a sample is "docked" above this, "collapsed" below.
-DOCK_FLOOR = 0.65
-PROVISIONAL = "PROVISIONAL n=3; Hedi re-fits at 50 designs"
+# --- Gate, adopted from src/hedi/ipsae.py on branch hedi (commit 60e2178) ---
+# DOCK_THRESHOLD = 0.5 : a sample has docked if its ipSAE is at least this.
+# MAX_SPREAD     = 0.30: reject a run whose samples disagree by more.
+# This replaces the earlier 0.20-spread / 0.65-floor rule, which is gone.
+DOCK_FLOOR = 0.50
+MAX_SAMPLE_SPREAD = 0.30
+PROVISIONAL = (
+    "PROVISIONAL: controls are extreme by construction. If real designs "
+    "cluster near 0.5 ipSAE or 0.30 spread, refit against the actual "
+    "distribution rather than applying these blindly."
+)
 
 FIELDS = [
     "run", "verdict", "reason", "n_samples", "docking_rate",
     "max_sample_spread", "min_sample", "ipsae_median", "iptm_median",
-    "ipsae_samples", "iptm_samples", "thresholds",
+    "ipsae_samples", "iptm_samples", "collapse_diag", "thresholds",
 ]
 
 
@@ -110,21 +115,53 @@ def iptm_samples(run_dir: Path):
     return out
 
 
-def ipsae_samples(run_dir: Path):
-    """ipSAE per diffusion sample, using the 'max' (better-direction) kind."""
-    import ipsae
-    _, every = ipsae.score_boltz_run(run_dir, PAE_CUTOFF, DIST_CUTOFF)
+def plddt_means(run_dir: Path):
+    """Mean pLDDT per diffusion sample, rescaled to 0-100."""
+    import numpy as np
+    run = run_dir.name
+    pat = run_dir / f"boltz_results_{run}" / "predictions" / run
     out = []
-    for recs in every:
-        vals = [r.ipsae for r in recs if r.kind == "max"]
-        if not vals:
-            raise RuntimeError(f"{run_dir.name}: no 'max' record in a sample")
-        out.append(vals[0])
+    for q in sorted(pat.glob("plddt_*_model_*.npz"),
+                    key=lambda x: int(x.stem.rsplit("_", 1)[1])):
+        a = np.load(q)["plddt"]
+        out.append(float(a.mean()) * 100.0)
     return out
 
 
+def ipsae_samples(run_dir: Path):
+    """ipSAE per diffusion sample, plus the collapse diagnostic.
+
+    Returns (values, diagnostics). The diagnostic per sample carries n0res
+    and the HER2-side interface residue count, which both go to ~0 on a
+    collapsed sample while mean pLDDT holds in the low 80s -- the structure
+    stays confidently folded, it just stops touching the target. That is why
+    pLDDT cannot be used to detect collapse and the docking rate can.
+    """
+    import ipsae
+    _, every = ipsae.score_boltz_run(run_dir, PAE_CUTOFF, DIST_CUTOFF)
+    vals, diag = [], []
+    for recs in every:
+        mx = [r for r in recs if r.kind == "max"]
+        if not mx:
+            raise RuntimeError(f"{run_dir.name}: no 'max' record in a sample")
+        r = mx[0]
+        vals.append(r.ipsae)
+        # asym B->A carries the HER2-side interface residue count
+        ba = [q for q in recs if q.kind == "asym" and q.chain1 == "B"]
+        diag.append({
+            "ipsae": r.ipsae,
+            "n0res": getattr(r, "n0res", None),
+            "nres_her2": getattr(ba[0], "nres1", None) if ba else None,
+            "dist1": getattr(r, "dist1", None),
+        })
+    return vals, diag
+
+
 def judge(samples):
-    """Apply the stability filter. Returns (verdict, reason, stats)."""
+    """Hedi's gate: EVERY sample must dock, and spread must be within bounds.
+
+    The median does not gate. It only ranks designs that already passed.
+    """
     n = len(samples)
     spread = max(samples) - min(samples)
     lo = min(samples)
@@ -137,16 +174,23 @@ def judge(samples):
         "ipsae_median": round(st.median(samples), 4),
     }
     reasons = []
+    if docked < n:
+        failed = [f"{v:.4f}" for v in samples if v < DOCK_FLOOR]
+        reasons.append(
+            f"only {docked}/{n} samples docked at ipSAE >= {DOCK_FLOOR:g} "
+            f"(collapsed: {', '.join(failed)})"
+        )
     if spread > MAX_SAMPLE_SPREAD:
-        reasons.append(f"sample-spread {spread:.4f} > {MAX_SAMPLE_SPREAD}")
-    if lo < MIN_SINGLE_SAMPLE:
-        reasons.append(f"min sample {lo:.4f} < {MIN_SINGLE_SAMPLE}")
+        reasons.append(f"sample-spread {spread:.4f} > {MAX_SAMPLE_SPREAD:g}")
     verdict = "REJECT" if reasons else "PASS"
-    return verdict, "; ".join(reasons) or "stable across all samples", stats
+    return verdict, "; ".join(reasons) or "all samples docked, spread in bounds", stats
 
 
 def score(run_dir: Path):
-    sam = ipsae_samples(run_dir)
+    sam, diag = ipsae_samples(run_dir)
+    pl = plddt_means(run_dir)
+    for i, d in enumerate(diag):
+        d["plddt"] = pl[i] if i < len(pl) else float("nan")
     it = iptm_samples(run_dir)
     verdict, reason, stats = judge(sam)
     row = {
@@ -155,6 +199,10 @@ def score(run_dir: Path):
         "ipsae_samples": " ".join(f"{v:.4f}" for v in sam),
         "iptm_samples": " ".join(f"{v:.4f}" for v in it),
         "thresholds": PROVISIONAL,
+        "collapse_diag": " | ".join(
+            f"m{i}:ipsae={d['ipsae']:.3f},n0res={d['n0res']},"
+            f"her2_iface={d['nres_her2']},plddt={d['plddt']:.1f}"
+            for i, d in enumerate(diag)),
         **stats,
     }
     return row
@@ -182,9 +230,10 @@ def main(argv):
 
     print(f"ipSAE via {IPSAE_SOURCE}\n  pae_cutoff={PAE_CUTOFF} "
           f"dist_cutoff={DIST_CUTOFF}")
-    print(f"stability filter: reject if sample-spread > {MAX_SAMPLE_SPREAD} "
-          f"OR any sample < {MIN_SINGLE_SAMPLE}   [{PROVISIONAL}]")
-    print("median is SECONDARY -- never used to pass or reject\n")
+    print(f"GATE: every one of the samples must dock at ipSAE >= {DOCK_FLOOR:g}"
+          f" AND spread <= {MAX_SAMPLE_SPREAD:g}")
+    print("The median does NOT gate -- it only ranks designs that passed.")
+    print(f"[{PROVISIONAL}]\n")
 
     rows = []
     for d in runs:
@@ -213,6 +262,12 @@ def main(argv):
             print(f"  {r['run']:24} {r['ipsae_samples']}")
             if r["verdict"] == "REJECT":
                 print(f"  {'':24} ^ {r['reason']}")
+    print("\ncollapse diagnostic (n0res and HER2 interface residues go to ~0")
+    print("on a collapsed sample while pLDDT holds -- folded but not touching):")
+    for r in rows:
+        if r["verdict"] != "ERROR":
+            print(f"  {r['run']}")
+            print(f"    {r['collapse_diag']}")
 
     npass = sum(1 for r in rows if r["verdict"] == "PASS")
     print(f"\n{npass}/{len(rows)} PASS   "

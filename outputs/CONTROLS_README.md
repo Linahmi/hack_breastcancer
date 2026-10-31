@@ -80,7 +80,7 @@ valid parent baseline is `parent_wt_seed{1,2,3}`.
 
 ---
 
-## Stability filter — PROVISIONAL (fitted on n=3)
+## Gate — PROVISIONAL (adopted from src/hedi/ipsae.py, commit 60e2178)
 
 Broken designs are **unstable, not low-scoring**. Each diffusion sample
 either docks (~0.87) or collapses (<0.3); the empirical band between
@@ -88,23 +88,36 @@ either docks (~0.87) or collapses (<0.3); the empirical band between
 
 Reject rule, applied **BEFORE** the median, on the 5 individual samples:
 
-- sample-spread > **0.20**
-- or any single sample < **0.65**
+- every one of the 5 samples must dock at ipSAE >= **0.50**
+- and spread across the 5 samples <= **0.30**
 
-```
-                     good (parent + reverse)    broken (scrambled)
-max sample-spread              0.1301                 0.3481
-worst single sample            0.7779                 0.0000
-```
-
+The median does NOT gate. It only ranks designs that already passed.
 Applied to these controls: 6/9 PASS, 3/9 REJECT.
+
+Collapse is visible in interface geometry, not in confidence:
+
+```
+                      ipSAE   n0res   HER2 iface   mean pLDDT
+parent, typical       0.910     242          141         85.5
+scrambled, docked     0.898     242          141         83.0
+scrambled, partial    0.070      43           81         82.7
+scrambled, collapsed  0.000       0            0         80.6
+```
+
+n0res 242 -> 0 and HER2 interface 142 -> 0, while mean pLDDT holds at
+80-85. Folded but not touching. pLDDT cannot detect collapse.
 
 **Never collapse a design to its median.** `cdrh3_scrambled_seed1` has
 median ipSAE 0.8773, inside the parent's own range (0.8615-0.9218), and a
 median-only filter passes it. Report all 5 samples, the docking rate, the
 max sample-spread, and the median as secondary only.
 
-**PROVISIONAL: n=3 control sequences. Hedi re-fits at 50 designs.**
+**PROVISIONAL.** The controls are extreme by construction. If real designs
+cluster near 0.5 ipSAE or 0.30 spread, refit against the actual
+distribution rather than applying these blindly.
+
+Caveat: cdrh3_scrambled_seed1 docks 5/5 under the 0.50 floor and is
+rejected on spread alone (0.3481 vs 0.30) -- a margin of 0.048.
 
 Scoring: `python3 src/aida/score_designs.py --all --csv results/scored.csv`
 
@@ -114,8 +127,13 @@ The `cdrh3_scrambled_*` outputs here, and the thresholds above, use a
 13-residue permutation of positions **97-109**
 (`SRWGGDGFYAMDY` -> `RMADDWGFYGSYG`), from `src/hedi/inputs/`.
 
-An 11-residue permutation of **99-109**
-(`WGGDGFYAMDY` -> `GFDMAWYGYDG`) was also prepared and was pushed in
-commit dac6c33, then replaced in 5327aaa. Both preserve whole-sequence
-composition. If we revert to the 99-109 version these thresholds must be
-refitted.
+RESOLVED: we keep the as-run 97-109 version. It is the more conservative
+control and every threshold is fitted on it.
+
+NOTE A CONFLICT: `results/controls.csv` on branch `hedi` records the
+cdrh3_scrambled sequence as the 99-109 permutation
+(`WGGDGFYAMDY` -> `GFDMAWYGYDG`, 9 mutations) and its `note` column says
+"as run". That sequence was NOT run. The three run_meta.json files record
+`RMADDWGFYGSYG` (97-109, 10 mutations: S97R R98M W99A G100D G101D D102W
+A106G M107S D108Y Y109G). controls.csv is not edited here -- it is
+Hedi's file.

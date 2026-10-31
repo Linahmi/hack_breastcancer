@@ -104,29 +104,42 @@ scrambled CDR-H3 binds as well as trastuzumab.
 
 ### 4. Why we filter on stability, not on score
 
-The reject rule runs **before** the median, on the 5 individual samples:
+The gate runs **before** the median, on the 5 individual samples
+(adopted from `src/hedi/ipsae.py`, commit 60e2178):
 
-- reject if **sample-spread > 0.20**
-- or if **any single sample < 0.65**
+- **every one of the 5 samples must dock**, ipSAE ≥ **0.50**
+- and **spread across the 5 samples ≤ 0.30**
 
-Separation on the controls, with nothing in between:
-
-```
-                     good (parent + reverse)    broken (scrambled)
-max sample-spread              0.1301                 0.3481
-worst single sample            0.7779                 0.0000
-```
-
-0.20 sits 1.5× above the worst good run and 1.7× below the best broken
-one. 0.65 sits between a good floor of 0.778 and a broken floor of 0.000.
+The median does **not** gate. It only ranks designs that already passed.
 Applied to the controls: **6/9 PASS, 3/9 REJECT** — every scrambled seed
 rejected, every parent and reverse seed kept.
 
-**These thresholds are PROVISIONAL.** They are fitted on n=3 control
-sequences. The margins are clean but the sample size is three. Hedi
-re-fits at 50 designs. We report, per design, all 5 individual samples,
-the docking rate, the max sample-spread, and the median as a secondary
-number only — a design is never collapsed to its median.
+The collapse is visible in the interface geometry, not in confidence:
+
+```
+                      ipSAE   n0res   HER2 iface   mean pLDDT
+parent, typical       0.910     242          141         85.5
+scrambled, docked     0.898     242          141         83.0
+scrambled, partial    0.070      43           81         82.7
+scrambled, collapsed  0.000       0            0         80.6
+```
+
+`n0res` goes 242 → 0 and the HER2 interface goes 142 → 0, while **mean
+pLDDT holds at 80–85 throughout**. The model is still confidently folded;
+it has simply stopped touching the target. That is why pLDDT cannot
+detect collapse and the docking rate can.
+
+**These thresholds are PROVISIONAL.** The controls are extreme by
+construction — a shuffled CDR-H3 is a far harsher negative than anything
+a PLM scan will produce. If real designs cluster near 0.5 ipSAE or 0.30
+spread, refit against the actual distribution rather than applying these
+blindly. We report, per design, all 5 individual samples, the docking
+rate, the max sample-spread, and the median as a secondary number only —
+a design is never collapsed to its median.
+
+One calibration caveat: `cdrh3_scrambled_seed1` docks 5/5 under the 0.50
+floor and is rejected on spread alone, 0.3481 against a limit of 0.30 —
+a margin of 0.048. The gate catches it, but not with room to spare.
 
 Scoring is `src/aida/score_designs.py`, which uses `src/hedi/ipsae.py` at
 `pae_cutoff=10`, `dist_cutoff=15`. ipTM comes from Boltz's own
