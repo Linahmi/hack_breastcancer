@@ -172,7 +172,7 @@ def _fasta_to_yaml(input_faa: str) -> str:
     gpu=GPU,
     volumes={f"/{BOLTZ_VOLUME_NAME}": BOLTZ_MODEL_VOLUME},
 )
-def boltz(input_str: str, params_str: str | None = None) -> list:
+def boltz(input_str: str, params_str: str | None = None, name: str = "fixed") -> list:
     """Runs Boltz on a YAML or FASTA input string.
 
     The input can describe proteins, DNA, RNA, SMILES strings, or CCD identifiers.
@@ -181,6 +181,10 @@ def boltz(input_str: str, params_str: str | None = None) -> list:
         input_str (str): Input content as a string, can be in FASTA or Boltz YAML format.
         params_str (str | None): Optional string of additional parameters to pass to the
                                  `boltz predict` command. Defaults to `DEFAULT_PARAMS`.
+        name (str): Stem for the in-container input file. Boltz names every output
+                    after this stem, so it propagates to
+                    predictions/<name>/pae_<name>_model_0.npz. Defaults to "fixed"
+                    to preserve the previous behaviour for existing callers.
 
     Returns:
         list[tuple[Path, bytes]]: A list of tuples, where each tuple contains the relative
@@ -199,12 +203,17 @@ def boltz(input_str: str, params_str: str | None = None) -> list:
         params_str = DEFAULT_PARAMS
 
     with TemporaryDirectory() as in_dir, TemporaryDirectory() as out_dir:
+        assert "pae" not in name.lower(), (
+            f"input stem {name!r} contains 'pae'; it would collide with "
+            f"pae_*.npz globbing downstream"
+        )
+
         if input_str[0] == ">":
             open(in_faa := Path(in_dir) / "in.faa", "w").write(input_str)
             fixed_faa_str = _fasta_to_yaml(str(in_faa))
-            open(fixed_yaml := Path(in_dir) / "fixed.yaml", "w").write(fixed_faa_str)
+            open(fixed_yaml := Path(in_dir) / f"{name}.yaml", "w").write(fixed_faa_str)
         else:
-            open(fixed_yaml := Path(in_dir) / "fixed.yaml", "w").write(input_str)
+            open(fixed_yaml := Path(in_dir) / f"{name}.yaml", "w").write(input_str)
 
         run(
             f'boltz predict "{fixed_yaml}"'
@@ -228,6 +237,7 @@ def main(
     input_yaml: str | None = None,
     params_str: str | None = None,
     run_name: str | None = None,
+    name: str | None = None,
     out_dir: str = "./out/boltz",
 ):
     """Local entrypoint to run Boltz predictions using Modal.
@@ -252,7 +262,7 @@ def main(
 
     input_str = open(input_yaml or input_faa).read()
 
-    outputs = boltz.remote(input_str, params_str=params_str)
+    outputs = boltz.remote(input_str, params_str=params_str, name=name or "fixed")
 
     today = datetime.now().strftime("%Y%m%d%H%M")[2:]
     out_dir_full = Path(out_dir) / (run_name or today)
