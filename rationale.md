@@ -124,11 +124,15 @@ The thresholds were fitted on three controls and we expected them to need
 refitting. They transferred:
 
 ```
-PASS   spread max  0.2293
+PASS   spread max  0.2608
 REJECT spread min  0.3229
 ```
 
-Nothing occupies the gap between. 34 of 58 designs pass.
+Nothing occupies the gap between, but the margin is thin: **0.0621**.
+43 of 58 designs pass. One passing design, `lit_hotspot_excluded_01` at
+0.2608, sits 0.06 from a rejection — close enough that the threshold is
+now adjudicating rather than comfortably separating, and it should be
+refit against this distribution rather than the controls it came from.
 
 ### Two negatives, and we measured which was harsher rather than assuming
 
@@ -155,16 +159,20 @@ the ~40 positions **ESM2 flagged and AbLang2 did not** — positions the
 pool had never touched.
 
 ```
-esm2_only          8/8  PASS  (first batch, 5 mutations each)
+esm2_only         12/12 PASS  (100%)
 consensus_green    8/10 PASS  (80%)
 ```
 
 This supports **"requiring both models to agree was over-cautious"**. It
-does **not** support "ESM2-only is better". Fisher's exact on 8/8 vs 8/10
-gives **p ≈ 0.47** — entirely consistent with chance. The finding is the
+does **not** support "ESM2-only is better". Fisher's exact on 12/12 vs
+8/10 gives **p = 0.195** — consistent with chance. The finding is the
 **absence of a penalty**: positions we had been discarding on principle
 performed no worse than the ones we kept. That is a reason to widen the
 pool, not a claim of superiority.
+
+The arm is also the most *stable* of the six — median sample spread
+**0.0956** against 0.1091 for `consensus_green` and 0.3479 for
+`contact_test`. Stability, not score, is where the difference shows.
 
 ### The confound, and the check we ran on it
 
@@ -190,21 +198,47 @@ consensus_green          5.60          80%
 aggressive               9.38          75%
 ```
 
-`literature` sits at **exactly the same 5.00 mutations** as the first
-`esm2_only` batch and passes at **25%**. Same perturbation, a 75-point
-gap. Low mutation count is not what confers passing. Lina then built
+At the time of that check `literature` sat at **exactly the same 5.00
+mutations** as the first `esm2_only` batch and passed at **25%**. Same
+perturbation, a 75-point gap. Low mutation count is not what confers
+passing. (With six further literature designs the arm finished at 60%,
+mean 5.30 mutations — still below `esm2_only` at matched perturbation.) Lina then built
 `esm2_only` designs at 7–9 mutations from the same fixed position set,
-turning the confound into a dose-response within one arm. Those four were
-still folding when this was written; the dose-response result is not in
-this section.
+turning the confound into a dose-response within one arm.
+
+**The dose-response settles it.** Within that fixed position set, varying
+mutation count from 5 to 9 changed nothing about pass rate, and the
+higher-count designs were *tighter*, not looser:
+
+```
+n_mut    n   PASS   median spread
+    5    8      8          0.1020
+    7    1      1          0.0581
+    8    1      1          0.1160
+    9    2      2          0.0619
+
+5 mutations    median spread 0.1020
+7-9 mutations  median spread 0.0619   <- tighter
+```
+
+Position choice, not perturbation size, is what mattered. The
+low-perturbation explanation for the `esm2_only` result is ruled out.
 
 ### Literature at 25% is a result, not a gap in our data
 
 The `literature` arm draws on a published alanine scan. It is the
-**worst-performing arm we scored**. That is a finding worth stating rather
-than an arm to quietly drop: mutations reported in the literature for this
-target transferred least well into this scFv format. Format matters, and
-published hotspot data does not arrive format-free.
+**weakest arm we scored** — 6/10, 60%, against 75–100% for every arm
+except `contact_test`. Its first four designs passed at only 1/4. That is
+a finding worth stating rather than an arm to quietly drop: mutations
+reported in the literature for this target transferred least well into
+this scFv format. Format matters, and published hotspot data does not
+arrive format-free.
+
+The D102 head-to-head was built to test one such mutation directly —
+D102W from a published alanine scan against D102S chosen by the PLMs, on
+backgrounds matched for 5/5 docking. Result: **D102W 4/6 PASS, D102S 8/11
+PASS, Fisher p = 1.000.** Indistinguishable. n is too small to separate
+them and we do not claim otherwise.
 
 ### Cross-validation
 
@@ -217,7 +251,8 @@ folded.
 
 ### Throughput
 
-26 cofolds measured at production settings, 384 tokens, L40S: median
+58 designs plus 21 control runs were cofolded. Timing from 26 measured
+cofolds at production settings, 384 tokens, L40S: median
 **207 s**, p75 **243 s**, range 73–253 s. The variance is MSA-server
 latency, not compute.
 
